@@ -1,0 +1,20 @@
+{
+  "idf.currentSetup": "/Users/david/.espressif/v5.5.5/esp-idf",
+  "idf.customExtraVars": {
+    "ESP_IDF_MONITOR_NO_RESET": "1",
+    "IDF_TARGET": "esp32c6",
+    "OPENOCD_USB_ADAPTER_LOCATION": "1-1"
+  },
+  "clangd.path": "/Users/david/.espressif/tools/esp-clang/esp-19.1.2_20250312/esp-clang/bin/clangd",
+  "clangd.arguments": [
+    "--background-index",
+    "--query-driver=**",
+    "--compile-commands-dir=/Users/david/github/matter-gdo/build/default"
+  ],
+  "idf.flashType": "UART",
+  "idf.port": "/dev/tty.usbmodem1101",
+  "idf.monitorPort": "/dev/tty.usbmodem1101",
+  "idf.openOcdConfigs": [
+    "board/esp32c6-lpcore-builtin.cfg"
+  ]
+}

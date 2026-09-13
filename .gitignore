@@ -1,0 +1,17 @@
+.DS_Store
+.clangd
+.vscode/launch.json
+.vscode/settings.json
+.vscode/c_cpp_properties.json
+.cache
+compile_commands.json
+build/
+CMakePresets.json
+sdkconfig
+sdkconfig.old
+sdkconfig.defaults
+dependencies.lock
+managed_components/
+# Secure boot signing keys - never commit private keys
+secure_boot_signing_key.pem
+*_signing_key.pem

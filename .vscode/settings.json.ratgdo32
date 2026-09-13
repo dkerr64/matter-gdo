@@ -1,0 +1,20 @@
+{
+  "idf.currentSetup": "/home/david/.espressif/v5.5.5/esp-idf",
+  "idf.customExtraVars": {
+    "ESP_IDF_MONITOR_NO_RESET": "1",
+    "IDF_TARGET": "esp32"
+  },
+  "clangd.path": "/home/david/.espressif/tools/esp-clang/esp-19.1.2_20250312/esp-clang/bin/clangd",
+  "clangd.arguments": [
+    "--background-index",
+    "--query-driver=**",
+    "--compile-commands-dir=/home/david/github/matter-gdo/build/default"
+  ],
+  "idf.flashType": "UART",
+  "idf.port": "/dev/ratgdo32b",
+  "idf.monitorPort": "/dev/ratgdo32b",
+  "idf.openOcdConfigs": [
+    "interface/ftdi/esp32_devkitj_v1.cfg",
+    "target/esp32.cfg"
+  ]
+}

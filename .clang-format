@@ -1,0 +1,12 @@
+BasedOnStyle: LLVM
+ColumnLimit: 200
+NamespaceIndentation: None
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterCaseLabel: true
+  AfterFunction: true
+  BeforeLambdaBody: true
+  AfterNamespace: false
+  AfterControlStatement: Always
+  BeforeElse: true
+AllowShortLambdasOnASingleLine: None

@@ -1,0 +1,51 @@
+menu "Matter-GDO Settings"
+
+config GDO_UART_TX_PIN
+    int "UART data transmit (TX) pin"
+    range 0 99
+    default 0
+    help
+      Required option to set UART TX pin.
+
+config GDO_UART_RX_PIN
+    int "UART data receive (RX) pin"
+    range 0 99
+    default 0
+    help
+      Required option to set UART RX pin.
+
+config GDO_OBST_PIN
+    int "Obstruction sensor pin"
+    range 0 99
+    default 0
+    help
+      The pin that GDO's obstruction sensor is connected to.
+
+config GDO_DRY_CONTACT_OPEN_PIN
+    int "Dry contact open pin"
+    range 0 99
+    default 0
+    help
+      The pin that a dry-contact GDO's open control is connected to.
+
+config GDO_DRY_CONTACT_CLOSE_PIN
+    int "Dry contact close pin"
+    range 0 99
+    default 0
+    help
+      The pin that a dry-contact GDO's close control is connected to.
+
+config GDO_DRY_CONTACT_LIGHT_PIN
+    int "Dry contact light pin"
+    range 0 99
+    default 0
+    help
+      The pin that a dry-contact GDO's light control is connected to.
+
+config GDO_ENABLE_SYSLOG
+    bool "Enable syslog"
+    default n
+    help
+      Enable syslog support for the GDO project. Syslog server will be discovered via mDNS for _syslog._udp.  If syslog server IP or port changes then the device must reboot to discover new address.
+
+endmenu
