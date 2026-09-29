@@ -273,6 +273,19 @@ void app_driver_gdo_comms_init()
   gdo_comms_init_done = true;
 }
 
+void app_driver_gdo_comms_shutdown()
+{
+  if (!gdo_comms_init_done)
+    return;
+
+  gdo_comms_init_done = false;
+  esp_err_t err = gdo_deinit();
+  if (err != ESP_OK)
+  {
+    ESP_LOGE(TAG, "GDO communications shutdown failed: %s", esp_err_to_name(err));
+  }
+}
+
 gdo_door_state_t app_driver_get_door_state() { return gdo_status.door; }
 
 /****************************************************************************
