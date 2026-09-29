@@ -18,6 +18,7 @@
 #include <platform/PlatformManager.h>
 
 // Our project include files...
+#include "app_driver_gdo.h"
 #include "app_log.h"
 #include "app_utils.h"
 
@@ -120,6 +121,7 @@ static void reboot_task(void *arg)
 {
   vTaskDelay(pdMS_TO_TICKS(1000));
 
+  app_driver_gdo_comms_shutdown();
   esp_restart();
 
   // Should never get here
