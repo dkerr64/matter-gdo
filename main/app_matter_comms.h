@@ -27,4 +27,5 @@ extern void matter_comms_shutdown();
 extern esp_err_t matter_notify_door_state(gdo_door_state_t door_state);
 extern esp_err_t matter_notify_light_state(bool light_on);
 extern esp_err_t matter_notify_lock_state(bool lock_on);
+extern esp_err_t matter_notify_occupancy_state(bool occupied);
 extern esp_err_t matter_set_mode(uint8_t mode);

@@ -10,9 +10,11 @@
 // C/C++ language include files...
 
 // ESP-IDF include files...
+#include <esp_check.h>
 #include <esp_err.h>
 #include <esp_log.h>
 #include <esp_mac.h>
+#include <nvs_flash.h>
 
 // ESP-Matter SDK include files...
 #include <clusters/closure_control/integration.h>
@@ -30,8 +32,9 @@
 #include <app/clusters/closure-control-server/ClosureControlCluster.h>
 #include <app/clusters/closure-dimension-server/ClosureDimensionCluster.h>
 #include <app/clusters/mode-select-server/supported-modes-manager.h>
-
+#include <app/clusters/occupancy-sensor-server/OccupancySensingCluster.h>
 #include <app/clusters/time-synchronization-server/DefaultTimeSyncDelegate.h>
+#include <platform/CHIPDeviceLayer.h>
 
 // Our project include files...
 #include "app_driver_gdo.h"
@@ -52,6 +55,7 @@ using namespace chip::app::Clusters;
 using namespace chip::app::Clusters::Globals;
 using namespace chip::app::Clusters::ClosureControl;
 using namespace chip::app::Clusters::ClosureDimension;
+using namespace chip::app::Clusters::OccupancySensing;
 
 using namespace chip::app::Clusters::ModeSelect;
 
@@ -70,6 +74,8 @@ uint16_t mode_select_endpoint_id = 0;
 uint16_t occupancy_endpoint_id = 0;
 
 constexpr uint16_t k_timeout_seconds = 300;
+
+extern nvs_handle_t nvHandle;
 
 /****************************************************************************
  * Callbacks
@@ -126,20 +132,49 @@ static esp_err_t app_identification_cb(identification::callback_type_t type, uin
 // error code and strictly return ESP_OK.
 static esp_err_t app_attribute_update_cb(attribute::callback_type_t type, uint16_t endpoint_id, uint32_t cluster_id, uint32_t attribute_id, esp_matter_attr_val_t *val, void *priv_data)
 {
-  esp_err_t err = ESP_OK;
-
   ESP_LOGI(TAG,
-           "Attribute update callback: type: %u, endpoint_id: %u, cluster_id: "
+           "Attribute update callback: type: %s, endpoint_id: %u, cluster_id: "
            "0x%04x, attribute_id: 0x%04x value type: %u, value: %u",
-           type, endpoint_id, cluster_id, attribute_id, val->type, val->val.u32);
+           ENUM_NAME(type), endpoint_id, cluster_id, attribute_id, val->type, val->val.u32);
+
   if (type == PRE_UPDATE)
   {
-    if (endpoint_id == closure_endpoint_id || endpoint_id == dimension_endpoint_id || endpoint_id == light_endpoint_id || endpoint_id == lock_endpoint_id)
+    // PRE_UPDATE means the attribute is about to be updated in the Matter SDK's database.
+    // No validity check has been performed yet, so value may be invalid.
+    // For example, we WILL get here if the update is to turn on the light, regardless of its current state.
+
+    if (endpoint_id == light_endpoint_id || endpoint_id == lock_endpoint_id)
     {
-      // Handle closure, dimension, light, or lock endpoint specific attributes
-      app_driver_attribute_update(endpoint_id, cluster_id, attribute_id, val);
+      // Handle light and lock even if the value is same as current state, just in case
+      // we have got out-of-sync with the actual state.
+      return app_driver_attribute_update(endpoint_id, cluster_id, attribute_id, val);
     }
-    else if (endpoint_id == mode_select_endpoint_id)
+
+    if (endpoint_id == closure_endpoint_id)
+    {
+      // Handle closure, dimension
+      return app_driver_attribute_update(endpoint_id, cluster_id, attribute_id, val);
+    }
+  }
+  else if (type == POST_UPDATE)
+  {
+    // POST_UPDATE means the attribute has been updated successfully in the Matter SDK's database.
+    // We will only get here if attribute value is in correct range and an update was made.
+    // For example, we will NOT get here if the update is to turn on the light, and the light was already on.
+
+    if (endpoint_id == occupancy_endpoint_id)
+    {
+      // Handle occupancy endpoint specific attributes
+      return app_driver_attribute_update(endpoint_id, cluster_id, attribute_id, val);
+    }
+
+    if (endpoint_id == dimension_endpoint_id)
+    {
+      // Handle dimension endpoint specific attributes
+      return app_driver_attribute_update(endpoint_id, cluster_id, attribute_id, val);
+    }
+
+    if (endpoint_id == mode_select_endpoint_id)
     {
       // Handle mode select endpoint specific attributes
       // ID = 3, Type = 8, Value = 0 or 1
@@ -148,10 +183,11 @@ static esp_err_t app_attribute_update_cb(attribute::callback_type_t type, uint16
         ESP_LOGI(TAG, "Mode select attribute triggered reboot (1 second delay)");
         schedule_reboot();
       }
+      return ESP_OK;
     }
   }
 
-  return err;
+  return ESP_OK;
 }
 
 /****************************************************************************
@@ -306,6 +342,10 @@ static void matter_event_cb(const ChipDeviceEvent *event, intptr_t arg)
     break;
   case chip::DeviceLayer::DeviceEventType::kFactoryReset:
     ESP_LOGI(TAG, "Factory reset event received");
+    // Erase all NVS storage
+    nvs_erase_all(nvHandle);
+    // Shutdown GDO communications
+    app_driver_gdo_comms_shutdown();
     break;
   default:
     ESP_LOGW(TAG, "Unknown callback value: 0x%04X", event->Type);
@@ -503,7 +543,6 @@ extern void matter_comms_init()
   cluster::time_synchronization::feature::time_zone::add(time_sync_cluster, &tz_cfg);
   ESP_LOGI(TAG, "Time Synchronization Cluster initialized!");
 
-
   // ENDPOINT CREATION.
   // The order we create these determine the endpoint IDs assigned to each cluster.  Don't change order as
   // it may affect clients (in particular if anyone created scripts with chip-tool)
@@ -561,17 +600,53 @@ extern void matter_comms_init()
   lock_endpoint_id = endpoint::get_id(lock_endpoint);
   ESP_LOGI(TAG, "Lock created with endpoint_id %d", lock_endpoint_id);
 
-// #6 Create an occupancy sensor endpoint (which covers motion)
+  // #6 Create an occupancy sensor endpoint (which covers motion)
   occupancy_sensor::config_t occupancy_config;
+  // Assuming passive infrared for now.  On Sec+1.0 doors we may not have that, it may be based on
+  // an object crossing the obstruction sensor (either kOccupancyEvent or kOther?)
   occupancy_config.occupancy_sensing.feature_flags = chip::to_underlying(OccupancySensing::Feature::kPassiveInfrared);
+  // Keep deprecated sensor type bitmap set too, for clients that don't yet read the Feature flags.
+  occupancy_config.occupancy_sensing.occupancy_sensor_type = chip::to_underlying(OccupancySensing::OccupancySensorTypeEnum::kPir);
+  occupancy_config.occupancy_sensing.occupancy_sensor_type_bitmap = chip::to_underlying(OccupancySensing::OccupancySensorTypeBitmap::kPir);
   endpoint_t *occupancy_endpoint = occupancy_sensor::create(node, &occupancy_config, ENDPOINT_FLAG_NONE, nullptr);
   ABORT_APP_ON_FAILURE(occupancy_endpoint != nullptr, ESP_LOGE(TAG, "Failed to create occupancy sensor endpoint"));
   occupancy_endpoint_id = endpoint::get_id(occupancy_endpoint);
+  cluster_t *occupancy_cluster = cluster::get(occupancy_endpoint, OccupancySensing::Id);
+
+  LOG_ON_FALSE(cluster::occupancy_sensing::attribute::create_hold_time(occupancy_cluster, 3), "Failed to create hold time attribute");
+  // We should pass in a TLV-encoded structure for the hold time limits instead of nullptr, 0, 0. But under the covers that is
+  // not supported yet, so we pass nullptr, 0, 0 for now.  The ESP-Matter SDK sets Min/Max/Defaults to 1, 300 and 30 seconds respectively.
+  // We can change these after the matter server has started and the cluster instance is available (see below)
+  LOG_ON_FALSE(cluster::occupancy_sensing::attribute::create_hold_time_limits(occupancy_cluster, nullptr, 0, 0), "Failed to create hold time limits attribute");
   ESP_LOGI(TAG, "Occupancy sensor created with endpoint_id %d", occupancy_endpoint_id);
 
   /* Matter start */
   err = esp_matter::start(matter_event_cb);
   ABORT_APP_ON_FAILURE(err == ESP_OK, ESP_LOGE(TAG, "Failed to start Matter, err:%d", err));
+
+  // After starting Matter, we can read the initial (non-volatile) values of attributes and update the driver accordingly.
+  esp_matter_attr_val_t val;
+  attribute::get_val(occupancy_endpoint_id, OccupancySensing::Id, OccupancySensing::Attributes::HoldTime::Id, &val);
+  app_driver_attribute_update(occupancy_endpoint_id, OccupancySensing::Id, OccupancySensing::Attributes::HoldTime::Id, &val);
+
+  {
+    // The occupancy sensing cluster instance exists only once the endpoint is enabled by start(), the ESP-Matter SDK
+    // sets default values for the hold time limits min/max/default to 1, 300 and 30 seconds respectively.
+    chip::DeviceLayer::StackLock lock;
+    auto *occupancy_cluster = static_cast<OccupancySensingCluster *>(esp_matter::data_model::provider::get_instance().registry().Get({occupancy_endpoint_id, OccupancySensing::Id}));
+    if (occupancy_cluster != nullptr)
+    {
+      OccupancySensing::Structs::HoldTimeLimitsStruct::Type hold_time_limits;
+      hold_time_limits.holdTimeMin = 1;
+      hold_time_limits.holdTimeMax = 10;
+      hold_time_limits.holdTimeDefault = 3;
+      occupancy_cluster->SetHoldTimeLimits(hold_time_limits);
+    }
+    else
+    {
+      ESP_LOGE(TAG, "Occupancy sensing cluster not found, HoldTimeLimits not set");
+    }
+  }
 
   matter_set_mode(0); // Set initial mode (reset if remote reboot triggered)
 
@@ -750,6 +825,23 @@ esp_err_t matter_notify_lock_state(bool lock_on)
                                         attribute::report(lock_endpoint_id, DoorLock::Id, DoorLock::Attributes::LockState::Id, &val);
                                       },
                                       lock_on));
+  return ESP_OK;
+}
+
+esp_err_t matter_notify_occupancy_state(bool occupied)
+{
+  if (!matter_comms_init_done)
+    return ESP_OK;
+
+  ChipLogIfFalse(CHIP_NO_ERROR == chip::DeviceLayer::PlatformMgr().ScheduleWork(
+                                      [](intptr_t arg)
+                                      {
+                                        esp_matter_attr_val_t val = esp_matter_bitmap8(arg ? chip::to_underlying(OccupancySensing::OccupancyBitmap::kOccupied) : 0);
+                                        ESP_LOGI(TAG, "Set occupancy state to %s", arg ? "OCCUPIED" : "UNOCCUPIED");
+                                        // report() will not call callbacks, but will inform clients of the change.
+                                        attribute::report(occupancy_endpoint_id, OccupancySensing::Id, OccupancySensing::Attributes::Occupancy::Id, &val);
+                                      },
+                                      occupied));
   return ESP_OK;
 }
 

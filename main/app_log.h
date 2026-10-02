@@ -10,6 +10,22 @@
 // System build includes
 #include <sdkconfig.h>
 
+// Our App include files...
+#include <magic_enum.hpp>
+
+#define ENUM_NAME(x) (magic_enum::enum_name(x).data())
+#define ENUM_CAST_NAME(t, x) (magic_enum::enum_name(magic_enum::enum_cast<t>(x).value()).data())
+#define ENUM_CAST_NAME_IF(b, t, x) ((b) ? magic_enum::enum_name(magic_enum::enum_cast<t>(x).value()).data() : "NO VALUE")
+
+#define LOG_ON_FALSE(a, format, ...)                                                                                                                                                                   \
+  do                                                                                                                                                                                                   \
+  {                                                                                                                                                                                                    \
+    if (unlikely(!(a)))                                                                                                                                                                                \
+    {                                                                                                                                                                                                  \
+      ESP_LOGE(TAG, "%s(%d): " format, __FUNCTION__, __LINE__, ##__VA_ARGS__);                                                                                                                         \
+    }                                                                                                                                                                                                  \
+  } while (0)
+
 #ifdef CONFIG_GDO_ENABLE_SYSLOG
 #include <esp_log.h>
 extern void find_mdns_service(const char *service_name, const char *proto);

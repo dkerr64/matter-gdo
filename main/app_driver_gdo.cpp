@@ -89,7 +89,8 @@ static void gdo_event_handler(const gdo_status_t *status, gdo_cb_event_t event, 
     ESP_LOGI(TAG, "GDO event: lock remotes: %s (%s)", gdo_lock_state_to_string(status->lock), timeString());
     matter_notify_lock_state(status->lock == gdo_lock_state_t::GDO_LOCK_STATE_LOCKED);
     break;
-  case GDO_CB_EVENT_DOOR_POSITION: {
+  case GDO_CB_EVENT_DOOR_POSITION:
+  {
     ESP_LOGI(TAG, "GDO event: door: %s, %3d, target: %3d", gdo_door_state_to_string(status->door), status->door_position / 100, (status->door_target >= 0) ? status->door_target / 100 : -1);
 
     matter_notify_door_state(status->door);
@@ -125,17 +126,7 @@ static void gdo_event_handler(const gdo_status_t *status, gdo_cb_event_t event, 
   case GDO_CB_EVENT_MOTION:
     ESP_LOGI(TAG, "GDO event: motion: %s", gdo_motion_state_to_string(status->motion));
     // We got a motion message, so we know we have a motion sensor
-    /*
-    // If it's not yet enabled, add the service
-    if (!garage_door.has_motion_sensor)
-    {
-      ESP_LOGI(TAG, "Detected new Motion Sensor. Enabling Service");
-      motionTriggers.bit.motion = 1;
-      userConfig->set(cfg_motionTriggers, motionTriggers.asInt);
-      // enable_service_homekit_motion(false); // ESP32 with HomeSpan can do this without reboot
-    }
-    // notify_homekit_motion(status->motion == gdo_motion_state_t::GDO_MOTION_STATE_DETECTED);
-    */
+    matter_notify_occupancy_state(status->motion == gdo_motion_state_t::GDO_MOTION_STATE_DETECTED);
     break;
   case GDO_CB_EVENT_BATTERY:
     ESP_LOGI(TAG, "GDO event: battery: %s", gdo_battery_state_to_string(status->battery));
@@ -261,6 +252,9 @@ void app_driver_gdo_comms_init()
       gdo_set_rolling_code(rolling_code);
       save_rolling_code();
       */
+
+    // TODO:
+    // Set the door open/close durations if we had saved it to nvram
   }
 
   if ((err = gdo_start(gdo_event_handler, NULL)) != ESP_OK)
@@ -298,8 +292,25 @@ esp_err_t app_driver_attribute_update(uint16_t endpoint_id, uint32_t cluster_id,
   if (!gdo_comms_init_done)
     return err;
 
-  if (endpoint_id == closure_endpoint_id || endpoint_id == dimension_endpoint_id)
+  if (endpoint_id == closure_endpoint_id)
   {
+    return err;
+  }
+
+  if (endpoint_id == dimension_endpoint_id)
+  {
+    // val->type for this attribute is expected to be ESP_MATTER_VAL_TYPE_UINT16;
+    if (cluster_id == ClosureDimension::Id)
+    {
+      if (attribute_id == ClosureDimension::Attributes::Resolution::Id)
+      {
+        ESP_LOGI(TAG, "Closure dimension attribute updated: resolution = %u", val->val.u16);
+      }
+      else if (attribute_id == ClosureDimension::Attributes::StepValue::Id)
+      {
+        ESP_LOGI(TAG, "Closure dimension attribute updated: step value = %u", val->val.u16);
+      }
+    }
     return err;
   }
 
@@ -317,6 +328,17 @@ esp_err_t app_driver_attribute_update(uint16_t endpoint_id, uint32_t cluster_id,
 
   if (endpoint_id == lock_endpoint_id)
   {
+    return err;
+  }
+
+  if (endpoint_id == occupancy_endpoint_id)
+  {
+    if (cluster_id == OccupancySensing::Id && attribute_id == OccupancySensing::Attributes::HoldTime::Id)
+    {
+      // val->type for this attribute is expected to be ESP_MATTER_VAL_TYPE_UINT16;
+      err = gdo_set_motion_timeout(val->val.u16 * 1000); // Convert hold time from seconds to milliseconds
+      ESP_LOGI(TAG, "Occupancy attribute updated: hold time = %u", val->val.u16);
+    }
     return err;
   }
 
