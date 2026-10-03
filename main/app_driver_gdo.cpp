@@ -16,6 +16,7 @@
 #include <app-common/zap-generated/attributes/Accessors.h>
 
 // Our project include files...
+#include "app_config.h"
 #include "app_driver_gdo.h"
 #include "app_matter_comms.h"
 #include "app_utils.h"
@@ -48,9 +49,9 @@ using namespace chip::app::Clusters::ClosureDimension;
 static constexpr char *TAG = "app_driver_gdo";
 bool gdo_comms_init_done = false;
 
-extern uint16_t lock_endpoint_id;
-
 static gdo_status_t gdo_status;
+uint32_t last_saved_code = 0;
+#define MAX_CODES_WITHOUT_FLASH_WRITE 10
 
 constexpr std::string_view ESP32_BOARD = CONFIG_IDF_TARGET;
 
@@ -185,6 +186,19 @@ static void gdo_event_handler(const gdo_status_t *status, gdo_cb_event_t event, 
 }
 
 /****************************************************************************
+ * Helper functions for GDO communications.
+ */
+void save_rolling_code()
+{
+  if (gdo_status.rolling_code != 0)
+    gdo_get_status(&gdo_status); // get most recent rolling code if we are not resetting it.
+
+  ESP_LOGI(TAG, "Save rolling code: %d", gdo_status.rolling_code);
+  write_nvs_int(nvram_rolling, gdo_status.rolling_code);
+  last_saved_code = gdo_status.rolling_code;
+}
+
+/****************************************************************************
  * Initialization
  *
  */
@@ -225,15 +239,15 @@ void app_driver_gdo_comms_init()
       ESP_LOGE(TAG, "gdo_init failed with error: %d", err);
       return;
     }
-    /*
+
     // read from flash, default of 0 if file not exist
-    uint32_t id_code = read_door_int(nvram_id_code);
-    uint32_t rolling_code = read_door_int(nvram_rolling);
+    uint32_t id_code = read_nvs_int(nvram_id_code);
+    uint32_t rolling_code = read_nvs_int(nvram_rolling);
     if (!id_code || !rolling_code)
     {
-      ESP_LOGI(TAG, "generate new id code");
-      id_code = (random(0x1, 0xFFF) << 12) | 0x539;
-      write_door_int(nvram_id_code, id_code);
+      ESP_LOGI(TAG, "Generate new Sec+2.0 id code");
+      id_code = ((1 + (esp_random() % 0xFFE)) << 12) | 0x539;
+      write_nvs_int(nvram_id_code, id_code);
     }
     ESP_LOGI(TAG, "id code %lu (0x%02lX)", id_code, id_code);
 
@@ -241,17 +255,9 @@ void app_driver_gdo_comms_init()
     // always be ahead of what the GDO thinks it should be, and save it.
     rolling_code = (rolling_code != 0) ? rolling_code + MAX_CODES_WITHOUT_FLASH_WRITE : 0;
     ESP_LOGI(TAG, "rolling code %lu (0x%02X)", rolling_code, rolling_code);
-    if (doorControlType == DOOR_CONTROL_SEC_PLUS_V2)
-    {
-      if ((err = gdo_set_protocol(GDO_PROTOCOL_SEC_PLUS_V2)) != ESP_OK)
-      {
-        ESP_LOGE(TAG, "gdo_set_protocol failed with error: %d", err);
-        return;
-      }
-      gdo_set_client_id(id_code);
-      gdo_set_rolling_code(rolling_code);
-      save_rolling_code();
-      */
+    gdo_set_client_id(id_code);
+    gdo_set_rolling_code(rolling_code);
+    save_rolling_code();
 
     // TODO:
     // Set the door open/close durations if we had saved it to nvram

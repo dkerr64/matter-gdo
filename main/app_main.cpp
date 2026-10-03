@@ -27,8 +27,6 @@
 
 static constexpr char *TAG = "app_main";
 
-nvs_handle_t nvHandle;
-
 using namespace esp_matter;
 using namespace esp_matter::attribute;
 using namespace esp_matter::endpoint;
@@ -44,22 +42,6 @@ static const uint16_t s_decryption_key_len = decryption_key_end - decryption_key
 
 extern "C" void app_main()
 {
-  /* Initialize the ESP NVS layer */
-  esp_err_t err = nvs_flash_init();
-  if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND)
-  {
-    ESP_ERROR_CHECK(nvs_flash_erase());
-    err = nvs_flash_init();
-  }
-  ESP_ERROR_CHECK(err);
-
-  err = nvs_open("matter-gdo", NVS_READWRITE, &nvHandle);
-  if (err != ESP_OK)
-  {
-    ESP_LOGE(TAG, "Error (%s) opening NVS handle!\n", esp_err_to_name(err));
-    nvHandle = 0;
-  }
-
   // Initialize our log hooks so we can log to syslog server advertized by mDNS
   app_log_init();
 

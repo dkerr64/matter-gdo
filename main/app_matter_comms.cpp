@@ -14,7 +14,6 @@
 #include <esp_err.h>
 #include <esp_log.h>
 #include <esp_mac.h>
-#include <nvs_flash.h>
 
 // ESP-Matter SDK include files...
 #include <clusters/closure_control/integration.h>
@@ -41,6 +40,7 @@
 #include "app_log.h"
 #include "app_matter_comms.h"
 #include "app_utils.h"
+#include "app_config.h"
 #include <gdo.h>
 
 // Set namespaces for convenience...
@@ -74,8 +74,6 @@ uint16_t mode_select_endpoint_id = 0;
 uint16_t occupancy_endpoint_id = 0;
 
 constexpr uint16_t k_timeout_seconds = 300;
-
-extern nvs_handle_t nvHandle;
 
 /****************************************************************************
  * Callbacks
@@ -343,7 +341,8 @@ static void matter_event_cb(const ChipDeviceEvent *event, intptr_t arg)
   case chip::DeviceLayer::DeviceEventType::kFactoryReset:
     ESP_LOGI(TAG, "Factory reset event received");
     // Erase all NVS storage
-    nvs_erase_all(nvHandle);
+
+    erase_nvs_data();
     // Shutdown GDO communications
     app_driver_gdo_comms_shutdown();
     break;

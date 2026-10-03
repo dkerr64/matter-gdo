@@ -21,13 +21,13 @@
 #include <freertos/queue.h>
 #include <freertos/task.h>
 #include <lwip/sockets.h>
-#include <nvs_flash.h>
 
 #include <lib/support/logging/CHIPLogging.h>
 
 // Our project include files...
 #include "app_log.h"
 #include "app_utils.h"
+#include "app_config.h"
 
 static constexpr char *TAG = "app_log";
 bool app_log_init_done = false;
@@ -39,7 +39,6 @@ typedef struct syslogServer {
 } syslogServer;
 static syslogServer syslogSrv = {};
 char nvs_key_syslogSrv[] = "syslogSrv";
-extern nvs_handle_t nvHandle;
 static bool syslogDiscovered = false;
 
 #define LOG_BUFFER_SIZE (1024 * 16)
@@ -247,14 +246,7 @@ void parse_mdns_response(const uint8_t *msg, size_t len, const char *want_servic
       syslogSrv.IPv4 = ip4;
       syslogSrv.port = srv[i].port;
       syslogDiscovered = true;
-
-      esp_err_t err = nvs_set_blob(nvHandle, nvs_key_syslogSrv, (void *)&syslogSrv, sizeof(syslogSrv));
-      if (err != ESP_OK)
-      {
-        ESP_LOGE(TAG, "NVRAM set error for: syslogSrv (%s)", esp_err_to_name(err));
-        return;
-      }
-      ESP_ERROR_CHECK_WITHOUT_ABORT(nvs_commit(nvHandle));
+      write_nvs_data(nvs_key_syslogSrv, &syslogSrv, sizeof(syslogSrv));
       break;
     }
   }
@@ -387,16 +379,14 @@ void syslog_discovery_task(void *arg)
   syslogDiscovered = false;
 
   // Attempt to read the syslog server information from NVS.
-  size_t size = sizeof(syslogSrv);
-  esp_err_t err = nvs_get_blob(nvHandle, nvs_key_syslogSrv, (void *)&syslogSrv, &size);
-  if (err != ESP_OK)
+  if (!read_nvs_data(nvs_key_syslogSrv, &syslogSrv, sizeof(syslogSrv)))
   {
-    ESP_LOGI(TAG, "No syslog server info in NVS: %s", esp_err_to_name(err));
+    ESP_LOGI(TAG, "No syslog server info in NVS");
     syslogSrv.port = 0;
   }
   else
   {
-    ESP_LOGI(TAG, "Read syslog server info from NVS successfully");
+    ESP_LOGI(TAG, "Syslog server info read from NVS");
     ESP_LOGI(TAG, "    IPv4: " IPSTR, IP2STR(&syslogSrv.IPv4));
     ESP_LOGI(TAG, "    Port: %u", syslogSrv.port);
   }
