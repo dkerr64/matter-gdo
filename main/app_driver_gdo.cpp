@@ -56,100 +56,113 @@ uint32_t last_saved_code = 0;
 constexpr std::string_view ESP32_BOARD = CONFIG_IDF_TARGET;
 
 /****************************************************************************
+ * Helper functions for GDO communications.
+ */
+static void save_rolling_code(uint32_t rolling_code = 0)
+{
+  if (rolling_code == 0 && gdo_status.rolling_code != 0)
+    gdo_get_status(&gdo_status); // get most recent rolling code if we are not resetting it.
+  else
+    gdo_status.rolling_code = rolling_code;
+
+  ESP_LOGI(TAG, "Save rolling code: %d", gdo_status.rolling_code);
+  write_nvs_int(nvram_rolling, gdo_status.rolling_code);
+  last_saved_code = gdo_status.rolling_code;
+}
+
+/****************************************************************************
  * Callback for GDOLIB status
  */
 static void gdo_event_handler(const gdo_status_t *status, gdo_cb_event_t event, void *arg)
 {
+  // make a local copy of the status
+  // we call function because it makes an interrupt/ISR and thread-safe copy of the status
+  gdo_get_status(&gdo_status);
+
   switch (event)
   {
   case GDO_CB_EVENT_SYNCED:
-    ESP_LOGI(TAG, "GDO event: synced: %s, protocol: %s", status->synced ? "true" : "false", gdo_protocol_type_to_string(status->protocol));
-    if (status->protocol == GDO_PROTOCOL_SEC_PLUS_V2)
+    ESP_LOGI(TAG, "GDO event: synced: %s, protocol: %s", gdo_status.synced ? "true" : "false", gdo_protocol_type_to_string(gdo_status.protocol));
+    if (gdo_status.protocol == GDO_PROTOCOL_SEC_PLUS_V2)
     {
-      ESP_LOGI(TAG, "Client ID: %" PRIu32 ", Rolling code: %" PRIu32, status->client_id, status->rolling_code);
+      ESP_LOGI(TAG, "Client ID: %" PRIu32 ", Rolling code: %" PRIu32, gdo_status.client_id, gdo_status.rolling_code);
     }
 
-    if (!status->synced)
+    if (!gdo_status.synced)
     {
-      if (gdo_set_rolling_code(status->rolling_code + 100) != ESP_OK)
+      if (gdo_set_rolling_code(gdo_status.rolling_code + 100) != ESP_OK)
       {
         ESP_LOGE(TAG, "Failed to set rolling code");
       }
       else
       {
-        ESP_LOGI(TAG, "Rolling code set to %" PRIu32 ", retrying sync", status->rolling_code);
+        ESP_LOGI(TAG, "Rolling code set to %" PRIu32 ", retrying sync", gdo_status.rolling_code);
         gdo_sync();
       }
     }
     break;
   case GDO_CB_EVENT_LIGHT:
-    ESP_LOGI(TAG, "GDO event: light: %s (%s)", gdo_light_state_to_string(status->light), timeString());
-    matter_notify_light_state(status->light == gdo_light_state_t::GDO_LIGHT_STATE_ON);
+    ESP_LOGI(TAG, "GDO event: light: %s (%s)", gdo_light_state_to_string(gdo_status.light), timeString());
+    matter_notify_light_state(gdo_status.light == gdo_light_state_t::GDO_LIGHT_STATE_ON);
     break;
   case GDO_CB_EVENT_LOCK:
-    ESP_LOGI(TAG, "GDO event: lock remotes: %s (%s)", gdo_lock_state_to_string(status->lock), timeString());
-    matter_notify_lock_state(status->lock == gdo_lock_state_t::GDO_LOCK_STATE_LOCKED);
+    ESP_LOGI(TAG, "GDO event: lock remotes: %s (%s)", gdo_lock_state_to_string(gdo_status.lock), timeString());
+    matter_notify_lock_state(gdo_status.lock == gdo_lock_state_t::GDO_LOCK_STATE_LOCKED);
     break;
   case GDO_CB_EVENT_DOOR_POSITION:
   {
-    ESP_LOGI(TAG, "GDO event: door: %s, %3d, target: %3d", gdo_door_state_to_string(status->door), status->door_position / 100, (status->door_target >= 0) ? status->door_target / 100 : -1);
+    ESP_LOGI(TAG, "GDO event: door: %s, %3d, target: %3d", gdo_door_state_to_string(gdo_status.door), gdo_status.door_position / 100,
+             (gdo_status.door_target >= 0) ? gdo_status.door_target / 100 : -1);
 
-    matter_notify_door_state(status->door);
+    matter_notify_door_state(gdo_status.door);
     /*
     garage_door.active = true;
-    if ((garage_door.current_state != gdo_to_homekit_door_current_state[status->door]) && (status->door != GDO_DOOR_STATE_UNKNOWN))
+    if ((garage_door.current_state != gdo_to_homekit_door_current_state[gdo_status.door]) && (gdo_status.door != GDO_DOOR_STATE_UNKNOWN))
     {
-      // notify_homekit_current_door_state_change(gdo_to_homekit_door_current_state[status->door]);
-      garage_door.current_state = gdo_to_homekit_door_current_state[status->door];
+      // notify_homekit_current_door_state_change(gdo_to_homekit_door_current_state[gdo_status.door]);
+      garage_door.current_state = gdo_to_homekit_door_current_state[gdo_status.door];
       // digitalWrite(STATUS_DOOR_PIN, garage_door.current_state == GarageDoorCurrentState::CURR_CLOSED ? LOW : HIGH);
-      // notify_homekit_target_door_state_change(gdo_to_homekit_door_target_state[status->door]);
+      // notify_homekit_target_door_state_change(gdo_to_homekit_door_target_state[gdo_status.door]);
 
       // If we are using Sec+2.0 built-in time-to-close then reset the TTC to zero when door is closed
-      if (status->door == GDO_DOOR_STATE_CLOSED && doorControlType == DOOR_CONTROL_SEC_PLUS_V2 && userConfig->getBuiltInTTC())
+      if (gdo_status.door == GDO_DOOR_STATE_CLOSED && doorControlType == DOOR_CONTROL_SEC_PLUS_V2 && userConfig->getBuiltInTTC())
         gdo_set_time_to_close(0);
     }
     */
     break;
   }
   case GDO_CB_EVENT_LEARN:
-    ESP_LOGI(TAG, "GDO event: learn: %s", gdo_learn_state_to_string(status->learn));
+    ESP_LOGI(TAG, "GDO event: learn: %s", gdo_learn_state_to_string(gdo_status.learn));
     break;
   case GDO_CB_EVENT_OBSTRUCTION:
-    ESP_LOGI(TAG, "GDO event: obstruction: %s (%s)", gdo_obstruction_state_to_string(status->obstruction), timeString());
-    /*
-    // notify_homekit_obstruction(status->obstruction == gdo_obstruction_state_t::GDO_OBSTRUCTION_STATE_OBSTRUCTED);
-    if (motionTriggers.bit.obstruction && garage_door.obstructed)
-    {
-      // notify_homekit_motion(true);
-    }
-    */
+    ESP_LOGI(TAG, "GDO event: obstruction: %s (%s)", gdo_obstruction_state_to_string(gdo_status.obstruction), timeString());
+    matter_notify_obstruction_state(gdo_status.obstruction == gdo_obstruction_state_t::GDO_OBSTRUCTION_STATE_OBSTRUCTED);
     break;
   case GDO_CB_EVENT_MOTION:
-    ESP_LOGI(TAG, "GDO event: motion: %s", gdo_motion_state_to_string(status->motion));
-    // We got a motion message, so we know we have a motion sensor
-    matter_notify_occupancy_state(status->motion == gdo_motion_state_t::GDO_MOTION_STATE_DETECTED);
+    ESP_LOGI(TAG, "GDO event: motion: %s", gdo_motion_state_to_string(gdo_status.motion));
+    matter_notify_occupancy_state(gdo_status.motion == gdo_motion_state_t::GDO_MOTION_STATE_DETECTED);
     break;
   case GDO_CB_EVENT_BATTERY:
-    ESP_LOGI(TAG, "GDO event: battery: %s", gdo_battery_state_to_string(status->battery));
-    // garage_door.batteryState = status->battery;
+    ESP_LOGI(TAG, "GDO event: battery: %s", gdo_battery_state_to_string(gdo_status.battery));
+    // garage_door.batteryState = gdo_status.battery;
     break;
   case GDO_CB_EVENT_BUTTON:
-    ESP_LOGI(TAG, "GDO event: button: %s", gdo_button_state_to_string(status->button));
-    // if (status->button == GDO_BUTTON_STATE_PRESSED)
+    ESP_LOGI(TAG, "GDO event: button: %s", gdo_button_state_to_string(gdo_status.button));
+    // if (gdo_status.button == GDO_BUTTON_STATE_PRESSED)
     //  manual_recovery();
     break;
   case GDO_CB_EVENT_MOTOR:
-    ESP_LOGI(TAG, "GDO event: motor: %s", gdo_motor_state_to_string(status->motor));
+    ESP_LOGI(TAG, "GDO event: motor: %s", gdo_motor_state_to_string(gdo_status.motor));
     break;
   case GDO_CB_EVENT_OPENINGS:
-    ESP_LOGI(TAG, "GDO event: openings: %d", status->openings);
-    // garage_door.openingsCount = status->openings;
+    ESP_LOGI(TAG, "GDO event: openings: %d", gdo_status.openings);
+    // garage_door.openingsCount = gdo_status.openings;
     break;
   case GDO_CB_EVENT_SET_TTC:
-    ESP_LOGI(TAG, "GDO event: set TTC: %d", status->ttc_seconds);
+    ESP_LOGI(TAG, "GDO event: set TTC: %d", gdo_status.ttc_seconds);
     break;
   case GDO_CB_EVENT_UPDATE_TTC:
-    ESP_LOGI(TAG, "GDO event: update TTC: %d", status->ttc_seconds);
+    ESP_LOGI(TAG, "GDO event: update TTC: %d", gdo_status.ttc_seconds);
     break;
   case GDO_CB_EVENT_CANCEL_TTC:
     ESP_LOGI(TAG, "GDO event: cancel TTC");
@@ -159,43 +172,26 @@ static void gdo_event_handler(const gdo_status_t *status, gdo_cb_event_t event, 
     */
     break;
   case GDO_CB_EVENT_PAIRED_DEVICES:
-    ESP_LOGI(TAG, "GDO event: paired devices, %d remotes, %d keypads, %d wall controls, %d accessories, %d total", status->paired_devices.total_remotes, status->paired_devices.total_keypads,
-             status->paired_devices.total_wall_controls, status->paired_devices.total_accessories, status->paired_devices.total_all);
+    ESP_LOGI(TAG, "GDO event: paired devices, %d remotes, %d keypads, %d wall controls, %d accessories, %d total", gdo_status.paired_devices.total_remotes, gdo_status.paired_devices.total_keypads,
+             gdo_status.paired_devices.total_wall_controls, gdo_status.paired_devices.total_accessories, gdo_status.paired_devices.total_all);
     break;
   case GDO_CB_EVENT_OPEN_DURATION_MEASUREMENT:
-    // garage_door.openDuration = (status->open_ms + 500) / 1000; // round up/down to closest second
-    ESP_LOGI(TAG, "GDO event: open duration: %d seconds (%s)", status->open_ms, timeString());
+    ESP_LOGI(TAG, "GDO event: open duration: %d seconds (%s)", gdo_status.open_ms, timeString());
+    write_nvs_int(nvram_open_history, gdo_status.open_ms);
     break;
   case GDO_CB_EVENT_CLOSE_DURATION_MEASUREMENT:
-    // garage_door.closeDuration = (status->close_ms + 500) / 1000; // round up/down to closest second
-    ESP_LOGI(TAG, "GDO event: close duration: %d seconds (%s)", status->close_ms, timeString());
+    ESP_LOGI(TAG, "GDO event: close duration: %d seconds (%s)", gdo_status.close_ms, timeString());
+    write_nvs_int(nvram_close_history, gdo_status.close_ms);
     break;
   default:
     ESP_LOGI(TAG, "GDO event: unknown: %d", event);
     break;
   }
-  /*
   // Save rolling code if we have exceeded max limit.
-  gdo_status.rolling_code = status->rolling_code;
-  // ESP_LOGI(TAG, "Rolling code: %lu", gdo_status.rolling_code);
   if (gdo_status.rolling_code >= (last_saved_code + MAX_CODES_WITHOUT_FLASH_WRITE))
   {
-    save_rolling_code();
+    save_rolling_code(gdo_status.rolling_code);
   }
-  */
-}
-
-/****************************************************************************
- * Helper functions for GDO communications.
- */
-void save_rolling_code()
-{
-  if (gdo_status.rolling_code != 0)
-    gdo_get_status(&gdo_status); // get most recent rolling code if we are not resetting it.
-
-  ESP_LOGI(TAG, "Save rolling code: %d", gdo_status.rolling_code);
-  write_nvs_int(nvram_rolling, gdo_status.rolling_code);
-  last_saved_code = gdo_status.rolling_code;
 }
 
 /****************************************************************************
@@ -257,10 +253,10 @@ void app_driver_gdo_comms_init()
     ESP_LOGI(TAG, "rolling code %lu (0x%02X)", rolling_code, rolling_code);
     gdo_set_client_id(id_code);
     gdo_set_rolling_code(rolling_code);
-    save_rolling_code();
+    save_rolling_code(rolling_code);
 
-    // TODO:
-    // Set the door open/close durations if we had saved it to nvram
+    gdo_set_open_duration(read_nvs_int(nvram_open_history));
+    gdo_set_close_duration(read_nvs_int(nvram_close_history));
   }
 
   if ((err = gdo_start(gdo_event_handler, NULL)) != ESP_OK)

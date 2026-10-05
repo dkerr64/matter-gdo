@@ -36,11 +36,11 @@
 #include <platform/CHIPDeviceLayer.h>
 
 // Our project include files...
+#include "app_config.h"
 #include "app_driver_gdo.h"
 #include "app_log.h"
 #include "app_matter_comms.h"
 #include "app_utils.h"
-#include "app_config.h"
 #include <gdo.h>
 
 // Set namespaces for convenience...
@@ -370,7 +370,7 @@ private:
 public:
   MatterStatus HandleStopCommand() override
   {
-    ESP_LOGI(TAG, "HandleStopCommand called");
+    ESP_LOGI(TAG, "TODO: HandleStopCommand called");
     return MatterStatus::Success;
   }
 
@@ -378,15 +378,16 @@ public:
   {
     if (position.HasValue())
     {
-      ESP_LOGI(TAG, "HandleMoveToCommand called with target position of %s", ENUM_NAME(position.Value()));
+      ESP_LOGI(TAG, "TODO: HandleMoveToCommand called with target position of %s", ENUM_NAME(position.Value()));
     }
     // We should set translation direction to upward or downward
+    // need to handle open/close/signature positions
     return MatterStatus::Success;
   }
 
   MatterStatus HandleCalibrateCommand() override
   {
-    ESP_LOGI(TAG, "HandleCalibrateCommand called");
+    ESP_LOGI(TAG, "TODO: HandleCalibrateCommand called");
     return MatterStatus::Success;
   }
 
@@ -402,14 +403,14 @@ public:
   {
     if (position.HasValue())
     {
-      ESP_LOGI(TAG, "HandleSetTarget called with value %d", position.Value());
+      ESP_LOGI(TAG, "TODO: HandleSetTarget called with value %d", position.Value());
     }
     return MatterStatus::Success;
   }
 
   MatterStatus HandleStep(const StepDirectionEnum &direction, const uint16_t &numberOfSteps, const Optional<ThreeLevelAutoEnum> &speed) override
   {
-    ESP_LOGI(TAG, "HandleStep called with direction %s", ENUM_NAME(direction));
+    ESP_LOGI(TAG, "TODO: HandleStep called with direction %s", ENUM_NAME(direction));
     return MatterStatus::Success;
   }
 };
@@ -930,4 +931,34 @@ esp_err_t matter_notify_door_state(gdo_door_state_t door_state)
   }
 
   return ESP_OK;
+}
+
+esp_err_t matter_notify_obstruction_state(bool obstructed)
+{
+  esp_err_t err = ESP_OK;
+  if (!matter_comms_init_done)
+    return err;
+
+  // Notify Matter of obstruction state change here.
+  // Implementation depends on the Matter SDK and your specific setup.
+  ChipLogIfFalse(CHIP_NO_ERROR == chip::DeviceLayer::PlatformMgr().ScheduleWork(
+                                      [](intptr_t arg)
+                                      {
+                                        auto &registry = esp_matter::data_model::provider::get_instance().registry();
+                                        ClosureControlCluster *cluster = static_cast<ClosureControlCluster *>(registry.Get(ConcreteClusterPath(closure_endpoint_id, ClosureControl::Id)));
+                                        if (arg)
+                                        {
+                                          //  Obstruction detected
+                                          ChipLogIfFalse(CHIP_NO_ERROR == cluster->AddErrorToCurrentErrorList(ClosureErrorEnum::kBlockedBySensor));
+                                          set_main_state(MainStateEnum::kError);
+                                        }
+                                        else
+                                        {
+                                          cluster->ClearCurrentErrorList();
+                                          set_main_state(MainStateEnum::kStopped);
+                                        }
+                                      },
+                                      obstructed));
+
+  return err;
 }
