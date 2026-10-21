@@ -255,8 +255,12 @@ void app_driver_gdo_comms_init()
     gdo_set_rolling_code(rolling_code);
     save_rolling_code(rolling_code);
 
-    gdo_set_open_duration(read_nvs_int(nvram_open_history));
-    gdo_set_close_duration(read_nvs_int(nvram_close_history));
+    uint16_t open_history = read_nvs_int(nvram_open_history);
+    ESP_LOGI(TAG, "Initializing open history to %ums", open_history);
+    gdo_set_open_duration(open_history);
+    uint16_t close_history = read_nvs_int(nvram_close_history);
+    ESP_LOGI(TAG, "Initializing close history to %ums", close_history);
+    gdo_set_close_duration(close_history);
   }
 
   if ((err = gdo_start(gdo_event_handler, NULL)) != ESP_OK)

@@ -371,7 +371,7 @@ private:
 public:
   MatterStatus HandleStopCommand() override
   {
-    ESP_LOGI(TAG, "TODO: HandleStopCommand called");
+    ESP_LOGW(TAG, "TODO: HandleStopCommand called");
     return MatterStatus::Success;
   }
 
@@ -379,7 +379,7 @@ public:
   {
     if (position.HasValue())
     {
-      ESP_LOGI(TAG, "TODO: HandleMoveToCommand called with target position of %s", ENUM_NAME(position.Value()));
+      ESP_LOGW(TAG, "TODO: HandleMoveToCommand called with target position of %s", ENUM_NAME(position.Value()));
     }
     // We should set translation direction to upward or downward
     // need to handle open/close/signature positions
@@ -388,7 +388,7 @@ public:
 
   MatterStatus HandleCalibrateCommand() override
   {
-    ESP_LOGI(TAG, "TODO: HandleCalibrateCommand called");
+    ESP_LOGW(TAG, "TODO: HandleCalibrateCommand called");
     return MatterStatus::Success;
   }
 
@@ -404,14 +404,14 @@ public:
   {
     if (position.HasValue())
     {
-      ESP_LOGI(TAG, "TODO: HandleSetTarget called with value %d", position.Value());
+      ESP_LOGW(TAG, "TODO: HandleSetTarget called with value %d", position.Value());
     }
     return MatterStatus::Success;
   }
 
   MatterStatus HandleStep(const StepDirectionEnum &direction, const uint16_t &numberOfSteps, const Optional<ThreeLevelAutoEnum> &speed) override
   {
-    ESP_LOGI(TAG, "TODO: HandleStep called with direction %s", ENUM_NAME(direction));
+    ESP_LOGW(TAG, "TODO: HandleStep called with direction %s", ENUM_NAME(direction));
     return MatterStatus::Success;
   }
 };
@@ -696,7 +696,7 @@ static void set_main_state(MainStateEnum context)
   err = cluster->SetMainState(context);
   if (err != CHIP_NO_ERROR)
   {
-    ESP_LOGE(TAG, "Failed to set OverallCurrentState: %" CHIP_ERROR_FORMAT, err.Format());
+    ESP_LOGE(TAG, "Failed to set MainState: %" CHIP_ERROR_FORMAT, err.Format());
   }
 }
 
@@ -712,11 +712,11 @@ static void set_current_state(CurrentPositionEnum context)
   if (!state.IsNull())
   {
     CurrentPositionEnum position = state.Value().position.Value().Value();
-    ESP_LOGI(TAG, "Current position: %s, change to: %s", ENUM_NAME(position), ENUM_NAME(context));
+    ESP_LOGD(TAG, "Current position: %s, change to: %s", ENUM_NAME(position), ENUM_NAME(context));
   }
   else
   {
-    ESP_LOGI(TAG, "Current position: Null, change to: %s", ENUM_NAME(context));
+    ESP_LOGD(TAG, "Current position: Null, change to: %s", ENUM_NAME(context));
   }
 
   if (context == CurrentPositionEnum::kUnknownEnumValue)
@@ -751,11 +751,11 @@ static void set_overall_target_state(TargetPositionEnum context)
   if (!state.IsNull())
   {
     TargetPositionEnum position = state.Value().position.Value().Value();
-    ESP_LOGI(TAG, "Current target position: %s, change to: %s", ENUM_NAME(position), ENUM_NAME(context));
+    ESP_LOGD(TAG, "Current target position: %s, change to: %s", ENUM_NAME(position), ENUM_NAME(context));
   }
   else
   {
-    ESP_LOGI(TAG, "Current target position: Null, change to: %s", ENUM_NAME(context));
+    ESP_LOGD(TAG, "Current target position: Null, change to: %s", ENUM_NAME(context));
   }
 
   if (context == TargetPositionEnum::kUnknownEnumValue)
@@ -773,7 +773,7 @@ static void set_overall_target_state(TargetPositionEnum context)
   }
   if (err != CHIP_NO_ERROR)
   {
-    ESP_LOGE(TAG, "Failed to set OverallCurrentState: %" CHIP_ERROR_FORMAT, err.Format());
+    ESP_LOGE(TAG, "Failed to set OverallTargetState: %" CHIP_ERROR_FORMAT, err.Format());
   }
 }
 
@@ -867,7 +867,7 @@ esp_err_t matter_notify_door_state(gdo_door_state_t door_state)
       ChipLogIfFalse(CHIP_NO_ERROR == chip::DeviceLayer::PlatformMgr().ScheduleWork(
                                           [](intptr_t arg)
                                           {
-                                            ESP_LOGI(TAG, "OPEN");
+                                            ESP_LOGD(TAG, "OPEN"); // temp log, remove later
                                             set_main_state(MainStateEnum::kStopped);
                                             set_current_state(CurrentPositionEnum::kFullyOpened);
                                             set_overall_target_state(TargetPositionEnum::kUnknownEnumValue);
@@ -881,7 +881,7 @@ esp_err_t matter_notify_door_state(gdo_door_state_t door_state)
       ChipLogIfFalse(CHIP_NO_ERROR == chip::DeviceLayer::PlatformMgr().ScheduleWork(
                                           [](intptr_t arg)
                                           {
-                                            ESP_LOGI(TAG, "CLOSED");
+                                            ESP_LOGD(TAG, "CLOSED"); // temp log, remove later
                                             set_main_state(MainStateEnum::kStopped);
                                             set_current_state(CurrentPositionEnum::kFullyClosed);
                                             set_overall_target_state(TargetPositionEnum::kUnknownEnumValue);
@@ -895,6 +895,7 @@ esp_err_t matter_notify_door_state(gdo_door_state_t door_state)
       ChipLogIfFalse(CHIP_NO_ERROR == chip::DeviceLayer::PlatformMgr().ScheduleWork(
                                           [](intptr_t arg)
                                           {
+                                            ESP_LOGD(TAG, "STOPPED"); // temp log, remove later
                                             set_main_state(MainStateEnum::kStopped);
                                             set_current_state(CurrentPositionEnum::kPartiallyOpened);
                                             set_overall_target_state(TargetPositionEnum::kUnknownEnumValue);
@@ -908,6 +909,7 @@ esp_err_t matter_notify_door_state(gdo_door_state_t door_state)
       ChipLogIfFalse(CHIP_NO_ERROR == chip::DeviceLayer::PlatformMgr().ScheduleWork(
                                           [](intptr_t arg)
                                           {
+                                            ESP_LOGD(TAG, "OPENING"); // temp log, remove later
                                             set_main_state(MainStateEnum::kMoving);
                                             set_current_state(CurrentPositionEnum::kPartiallyOpened);
                                             set_overall_target_state(TargetPositionEnum::kMoveToFullyOpen);
@@ -921,6 +923,7 @@ esp_err_t matter_notify_door_state(gdo_door_state_t door_state)
       ChipLogIfFalse(CHIP_NO_ERROR == chip::DeviceLayer::PlatformMgr().ScheduleWork(
                                           [](intptr_t arg)
                                           {
+                                            ESP_LOGD(TAG, "CLOSING"); // temp log, remove later
                                             set_main_state(MainStateEnum::kMoving);
                                             set_current_state(CurrentPositionEnum::kPartiallyOpened);
                                             set_overall_target_state(TargetPositionEnum::kMoveToFullyClosed);
