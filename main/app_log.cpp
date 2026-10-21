@@ -25,9 +25,9 @@
 #include <lib/support/logging/CHIPLogging.h>
 
 // Our project include files...
+#include "app_config.h"
 #include "app_log.h"
 #include "app_utils.h"
-#include "app_config.h"
 
 static constexpr char *TAG = "app_log";
 bool app_log_init_done = false;
@@ -624,7 +624,6 @@ int esp_log_hook(const char *fmt, va_list args)
   if (!app_log_init_done)
     return 0;
 
-
   // protect access to the rolling log buffer with a recursive mutex.
   xSemaphoreTakeRecursive(logMutex, portMAX_DELAY);
   vsnprintf(lineBuffer, LINE_BUFFER_SIZE, fmt, args);
@@ -651,7 +650,7 @@ int esp_log_hook(const char *fmt, va_list args)
     memcpy(numptr, ts, timestrlen);
     // Make sure we always end in a newline/null... which can get missed if we truncated the log message
     lineBuffer[LINE_BUFFER_SIZE - 2] = '\n';
-    lineBuffer[LINE_BUFFER_SIZE - 1] = 0;    
+    lineBuffer[LINE_BUFFER_SIZE - 1] = 0;
   }
   size_t len = strlen(lineBuffer);
 #else
@@ -728,7 +727,6 @@ void app_log_init()
 
   xTaskCreate(syslog_sender_task, "syslog_send", 4096, NULL, tskIDLE_PRIORITY + 1, &syslogTask);
 
-  esp_log_level_set("*", ESP_LOG_INFO);
   old_vprintf = esp_log_set_vprintf(esp_log_hook);
   chip::Logging::SetLogRedirectCallback(chipLogger);
 

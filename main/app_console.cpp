@@ -6,7 +6,7 @@
  *
  */
 
- // System build includes
+// System build includes
 #include <sdkconfig.h>
 
 #if CONFIG_ENABLE_CHIP_SHELL
@@ -17,8 +17,10 @@
 #include <esp_log.h>
 
 // Our project include files...
+#include "app_config.h"
 #include "app_console.h"
 #include "app_driver_gdo.h"
+#include "app_log.h"
 #include "app_matter_comms.h"
 #include <gdo.h>
 
@@ -33,6 +35,8 @@ int gdo_command_handler(int argc, char **argv)
     printf("Commands:\n");
     printf("  sim <command> - Simulate sending a GDO event to Matter\n");
     printf("  send <command> - Send command to the Garage Door Opener\n");
+    printf("  loglevel <0..5> - 0 (none) 1 (error) 2 (warn) 3 (info) 4 (debug) 5 (verbose)\n");
+
     return 0;
   }
 
@@ -182,6 +186,26 @@ int gdo_command_handler(int argc, char **argv)
     {
       ESP_LOGE(TAG, "Failed to send GDO command: %s", esp_err_to_name(err));
     }
+    return 0;
+  }
+
+  if (strcmp(argv[1], "loglevel") == 0)
+  {
+    if (argc < 3)
+    {
+      printf("Usage: gdo loglevel <0..5>\n");
+      return 0;
+    }
+
+    int level = atoi(argv[2]);
+    if (level < 0 || level > CONFIG_LOG_MAXIMUM_LEVEL)
+    {
+      printf("Invalid log level: %s\n. Must be between 0 and %d.\n", argv[2], CONFIG_LOG_MAXIMUM_LEVEL);
+      return 0;
+    }
+    printf("Setting log level to %s\n", ENUM_CAST_NAME(esp_log_level_t, level));
+    write_nvs_int(cfg_logLevel, level);
+    esp_log_level_set(TAG, (esp_log_level_t)level);
     return 0;
   }
 

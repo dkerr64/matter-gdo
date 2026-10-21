@@ -34,13 +34,5 @@ extern void app_log_init();
 
 extern bool app_log_init_done;
 #else
-#define app_log_init()                                                                                                                                                                                 \
-  do                                                                                                                                                                                                   \
-  {                                                                                                                                                                                                    \
-  } while (0)
-#define start_syslog_discovery()                                                                                                                                                                       \
-  do                                                                                                                                                                                                   \
-  {                                                                                                                                                                                                    \
-  } while (0)
 #define app_log_init_done false
 #endif // CONFIG_GDO_ENABLE_SYSLOG

@@ -7,6 +7,7 @@
  */
 
 // C/C++ language includes
+#include <algorithm>
 
 // ESP-IDF include files...
 #include <esp_console.h>
@@ -18,6 +19,7 @@
 #endif
 
 // Our project include files...
+#include "app_config.h"
 #include "app_console.h"
 #include "app_driver_gdo.h"
 #include "app_log.h"
@@ -42,8 +44,20 @@ static const uint16_t s_decryption_key_len = decryption_key_end - decryption_key
 
 extern "C" void app_main()
 {
+  int logLevel = read_nvs_int(cfg_logLevel, ESP_LOG_INFO);
+  if (logLevel > CONFIG_LOG_MAXIMUM_LEVEL)
+  {
+    ESP_LOGW(TAG, "Log level %s exceeds maximum allowed, capping to %s", ENUM_CAST_NAME(esp_log_level_t, logLevel), ENUM_CAST_NAME(esp_log_level_t, CONFIG_LOG_MAXIMUM_LEVEL));
+  }
+  else
+  {
+    ESP_LOGI(TAG, "Log level set to %s", ENUM_CAST_NAME(esp_log_level_t, std::min(logLevel, CONFIG_LOG_MAXIMUM_LEVEL)));
+  }
+  esp_log_level_set("*", static_cast<esp_log_level_t>(std::min(logLevel, CONFIG_LOG_MAXIMUM_LEVEL)));
+#ifdef CONFIG_GDO_ENABLE_SYSLOG
   // Initialize our log hooks so we can log to syslog server advertized by mDNS
   app_log_init();
+#endif // CONFIG_GDO_ENABLE_SYSLOG
 
 #ifdef CONFIG_CHIP_LOG_FILTERING
   // Default logging is way too verbose...

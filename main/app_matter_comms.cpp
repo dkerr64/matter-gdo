@@ -305,10 +305,11 @@ static void matter_event_cb(const ChipDeviceEvent *event, intptr_t arg)
   }
   case chip::DeviceLayer::DeviceEventType::kDnssdInitialized:
     ESP_LOGI(TAG, "DNS-SD initialized");
-
     // We can perform additional actions here if needed after DNS-SD
     // initialization, such as starting service discovery or advertising.
+#ifdef CONFIG_GDO_ENABLE_SYSLOG
     start_syslog_discovery();
+#endif // CONFIG_GDO_ENABLE_SYSLOG
     break;
   case chip::DeviceLayer::DeviceEventType::kServerReady:
     // Check if we have valid real time before setting the clock.

@@ -13,6 +13,8 @@
 // ESP system includes
 #include <nvs_flash.h>
 
+constexpr const char cfg_logLevel[] = "logLevel";
+
 constexpr const char nvram_id_code[] = "id_code";
 constexpr const char nvram_rolling[] = "rolling";
 constexpr const char nvram_open_history[] = "open_history";
