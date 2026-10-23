@@ -19,6 +19,7 @@
 #include <clusters/closure_control/integration.h>
 #include <clusters/closure_dimension/integration.h>
 #include <clusters/time_synchronization/integration.h>
+#include <clusters/occupancy_sensing/integration.h>
 #include <esp_matter.h>
 #include <esp_matter_attribute.h>
 #include <esp_matter_cluster.h>
@@ -79,12 +80,6 @@ constexpr uint16_t k_timeout_seconds = 300;
  * Callbacks
  *
  */
-// This callback is invoked when clients interact with the Identify Cluster.
-// In the callback implementation, an endpoint can identify itself. (e.g., by
-// flashing an LED or light).
-
-// required to resolve linker errors for Level Control Coupled Color Temperature Change callback (even though we don't use it)
-void emberAfPluginLevelControlCoupledColorTempChangeCallback(uint16_t endpoint) {}
 
 void emberAfDoorLockClusterInitCallback(chip::EndpointId) {}
 
@@ -657,7 +652,7 @@ extern void matter_comms_init()
     // The occupancy sensing cluster instance exists only once the endpoint is enabled by start(), the ESP-Matter SDK
     // sets default values for the hold time limits min/max/default to 1, 300 and 30 seconds respectively.
     chip::DeviceLayer::StackLock lock;
-    auto *occupancy_cluster = static_cast<OccupancySensingCluster *>(esp_matter::data_model::provider::get_instance().registry().Get({occupancy_endpoint_id, OccupancySensing::Id}));
+    OccupancySensingCluster *occupancy_cluster = FindClusterOnEndpoint(occupancy_endpoint_id);
     if (occupancy_cluster != nullptr)
     {
       OccupancySensing::Structs::HoldTimeLimitsStruct::Type hold_time_limits;
@@ -709,10 +704,7 @@ extern void matter_comms_shutdown()
 static void set_main_state(MainStateEnum context)
 {
   CHIP_ERROR err = CHIP_NO_ERROR;
-  auto &registry = esp_matter::data_model::provider::get_instance().registry();
-  // ServerClusterInterface *interface =
-  // registry.Get(ConcreteClusterPath(closure_endpoint_id, ClosureControl::Id));
-  ClosureControlCluster *cluster = static_cast<ClosureControlCluster *>(registry.Get(ConcreteClusterPath(closure_endpoint_id, ClosureControl::Id)));
+  ClosureControlCluster *cluster = GetClusterInstance(closure_endpoint_id);
   MainStateEnum state = cluster->GetMainState();
   ESP_LOGI(TAG, "Current main state: %s, change to: %s", ENUM_NAME(state), ENUM_NAME(context));
 
@@ -726,10 +718,8 @@ static void set_main_state(MainStateEnum context)
 static void set_current_state(CurrentPositionEnum context)
 {
   CHIP_ERROR err = CHIP_NO_ERROR;
+  ClosureControlCluster *cluster = GetClusterInstance(closure_endpoint_id);
   auto &registry = esp_matter::data_model::provider::get_instance().registry();
-  // ServerClusterInterface *interface =
-  // registry.Get(ConcreteClusterPath(closure_endpoint_id, ClosureControl::Id));
-  ClosureControlCluster *cluster = static_cast<ClosureControlCluster *>(registry.Get(ConcreteClusterPath(closure_endpoint_id, ClosureControl::Id)));
   ClosureDimensionCluster *dimension_cluster = static_cast<ClosureDimensionCluster *>(registry.Get(ConcreteClusterPath(dimension_endpoint_id, ClosureDimension::Id)));
   Nullable<GenericOverallCurrentState> state = cluster->GetOverallCurrentState();
   if (!state.IsNull())
@@ -765,10 +755,8 @@ static void set_current_state(CurrentPositionEnum context)
 static void set_overall_target_state(TargetPositionEnum context)
 {
   CHIP_ERROR err = CHIP_NO_ERROR;
+  ClosureControlCluster *cluster = GetClusterInstance(closure_endpoint_id);
   auto &registry = esp_matter::data_model::provider::get_instance().registry();
-  // ServerClusterInterface *interface =
-  // registry.Get(ConcreteClusterPath(closure_endpoint_id, ClosureControl::Id));
-  ClosureControlCluster *cluster = static_cast<ClosureControlCluster *>(registry.Get(ConcreteClusterPath(closure_endpoint_id, ClosureControl::Id)));
   ClosureDimensionCluster *dimension_cluster = static_cast<ClosureDimensionCluster *>(registry.Get(ConcreteClusterPath(dimension_endpoint_id, ClosureDimension::Id)));
   Nullable<GenericOverallTargetState> state = cluster->GetOverallTargetState();
   if (!state.IsNull())
@@ -971,8 +959,7 @@ esp_err_t matter_notify_obstruction_state(bool obstructed)
   ChipLogIfFalse(CHIP_NO_ERROR == chip::DeviceLayer::PlatformMgr().ScheduleWork(
                                       [](intptr_t arg)
                                       {
-                                        auto &registry = esp_matter::data_model::provider::get_instance().registry();
-                                        ClosureControlCluster *cluster = static_cast<ClosureControlCluster *>(registry.Get(ConcreteClusterPath(closure_endpoint_id, ClosureControl::Id)));
+                                        ClosureControlCluster *cluster = GetClusterInstance(closure_endpoint_id);
                                         if (arg)
                                         {
                                           //  Obstruction detected
