@@ -286,6 +286,29 @@ void app_driver_gdo_comms_shutdown()
   }
 }
 
+extern void app_driver_init_matter()
+{
+  if (!gdo_comms_init_done)
+    return;
+
+  gdo_get_status(&gdo_status);
+
+  if (gdo_status.door != GDO_DOOR_STATE_UNKNOWN)
+    matter_notify_door_state(gdo_status.door);
+
+  if (gdo_status.light != GDO_LIGHT_STATE_MAX)
+    matter_notify_light_state(gdo_status.light);
+
+  if (gdo_status.lock != GDO_LOCK_STATE_MAX)
+    matter_notify_lock_state(gdo_status.lock);
+
+  if (gdo_status.motion != GDO_MOTION_STATE_MAX)
+    matter_notify_occupancy_state(gdo_status.motion == gdo_motion_state_t::GDO_MOTION_STATE_DETECTED);
+
+  if (gdo_status.obstruction != GDO_OBSTRUCTION_STATE_MAX)
+    matter_notify_obstruction_state(gdo_status.obstruction == gdo_obstruction_state_t::GDO_OBSTRUCTION_STATE_OBSTRUCTED);
+}
+
 gdo_door_state_t app_driver_get_door_state() { return gdo_status.door; }
 
 /****************************************************************************

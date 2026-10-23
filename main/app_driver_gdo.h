@@ -14,6 +14,7 @@ extern bool gdo_comms_init_done;
 
 extern void app_driver_gdo_comms_init();
 extern void app_driver_gdo_comms_shutdown();
+extern void app_driver_init_matter();
 // extern gdo_door_state_t app_driver_get_door_state();
 
 /** Driver Update

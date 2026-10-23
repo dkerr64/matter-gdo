@@ -371,7 +371,8 @@ private:
 public:
   MatterStatus HandleStopCommand() override
   {
-    ESP_LOGW(TAG, "TODO: HandleStopCommand called");
+    ESP_LOGI(TAG, "HandleStopCommand called");
+    gdo_door_stop();
     return MatterStatus::Success;
   }
 
@@ -379,7 +380,29 @@ public:
   {
     if (position.HasValue())
     {
-      ESP_LOGW(TAG, "TODO: HandleMoveToCommand called with target position of %s", ENUM_NAME(position.Value()));
+      switch (position.Value())
+      {
+      case TargetPositionEnum::kMoveToFullyClosed:
+        ESP_LOGI(TAG, "Target position: kMoveToFullyClosed");
+        gdo_door_close();
+        break;
+      case TargetPositionEnum::kMoveToFullyOpen:
+        ESP_LOGI(TAG, "Target position: kMoveToFullyOpen");
+        gdo_door_open();
+        break;
+      case TargetPositionEnum::kMoveToPedestrianPosition:
+        ESP_LOGW(TAG, "Unsupported Target position: kMoveToPedestrianPosition");
+        break;
+      case TargetPositionEnum::kMoveToVentilationPosition:
+        ESP_LOGW(TAG, "Unsupported Target position: kMoveToVentilationPosition");
+        break;
+      case TargetPositionEnum::kMoveToSignaturePosition:
+        ESP_LOGI(TAG, "Target position: kMoveToSignaturePosition");
+        break;
+      default:
+        ESP_LOGW(TAG, "Unknown target position");
+        break;
+      }
     }
     // We should set translation direction to upward or downward
     // need to handle open/close/signature positions

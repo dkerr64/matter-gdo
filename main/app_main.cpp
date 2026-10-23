@@ -78,6 +78,8 @@ extern "C" void app_main()
   app_driver_gdo_comms_init();
   // Initialize Matter communications
   matter_comms_init();
+  // Initialize Matter attributes based on the current GDO status
+  app_driver_init_matter();
   // Initialize SNTP for time synchronization
   initialize_sntp();
 
