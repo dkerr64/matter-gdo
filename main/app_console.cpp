@@ -5,6 +5,7 @@
  * Licensed under terms of the GPL-3.0 License.
  *
  */
+#define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
 
 // System build includes
 #include <sdkconfig.h>
@@ -198,9 +199,9 @@ int gdo_command_handler(int argc, char **argv)
     }
 
     int level = atoi(argv[2]);
-    if (level < 0 || level > CONFIG_LOG_MAXIMUM_LEVEL)
+    if (level < 0 || level > LOG_LOCAL_LEVEL)
     {
-      printf("Invalid log level: %s\n. Must be between 0 and %d.\n", argv[2], CONFIG_LOG_MAXIMUM_LEVEL);
+      printf("Invalid log level: %s\n. Must be between 0 and %d.\n", argv[2], LOG_LOCAL_LEVEL);
       return 0;
     }
     printf("Setting log level to %s\n", ENUM_CAST_NAME(esp_log_level_t, level));

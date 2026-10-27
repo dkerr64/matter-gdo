@@ -5,6 +5,7 @@
  * Licensed under terms of the GPL-3.0 License.
  *
  */
+#define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
 
 #define CHIP_CONFIG_ENABLE_CONDITION_LOGGING 1
 // C/C++ language include files...
@@ -704,7 +705,7 @@ extern void matter_comms_shutdown()
 static void set_main_state(MainStateEnum context)
 {
   CHIP_ERROR err = CHIP_NO_ERROR;
-  ClosureControlCluster *cluster = GetClusterInstance(closure_endpoint_id);
+  ClosureControlCluster *cluster = ClosureControl::GetClusterInstance(closure_endpoint_id);
   MainStateEnum state = cluster->GetMainState();
   ESP_LOGI(TAG, "Current main state: %s, change to: %s", ENUM_NAME(state), ENUM_NAME(context));
 
@@ -718,7 +719,8 @@ static void set_main_state(MainStateEnum context)
 static void set_current_state(CurrentPositionEnum context)
 {
   CHIP_ERROR err = CHIP_NO_ERROR;
-  ClosureControlCluster *cluster = GetClusterInstance(closure_endpoint_id);
+  ClosureControlCluster *cluster = ClosureControl::GetClusterInstance(closure_endpoint_id);
+  // ClosureDimensionCluster *dimension_cluster = ClosureDimension::GetClusterInstance(dimension_endpoint_id);
   auto &registry = esp_matter::data_model::provider::get_instance().registry();
   ClosureDimensionCluster *dimension_cluster = static_cast<ClosureDimensionCluster *>(registry.Get(ConcreteClusterPath(dimension_endpoint_id, ClosureDimension::Id)));
   Nullable<GenericOverallCurrentState> state = cluster->GetOverallCurrentState();
@@ -755,7 +757,8 @@ static void set_current_state(CurrentPositionEnum context)
 static void set_overall_target_state(TargetPositionEnum context)
 {
   CHIP_ERROR err = CHIP_NO_ERROR;
-  ClosureControlCluster *cluster = GetClusterInstance(closure_endpoint_id);
+  ClosureControlCluster *cluster = ClosureControl::GetClusterInstance(closure_endpoint_id);
+  // ClosureDimensionCluster *dimension_cluster = ClosureDimension::GetClusterInstance(dimension_endpoint_id);
   auto &registry = esp_matter::data_model::provider::get_instance().registry();
   ClosureDimensionCluster *dimension_cluster = static_cast<ClosureDimensionCluster *>(registry.Get(ConcreteClusterPath(dimension_endpoint_id, ClosureDimension::Id)));
   Nullable<GenericOverallTargetState> state = cluster->GetOverallTargetState();
@@ -959,7 +962,7 @@ esp_err_t matter_notify_obstruction_state(bool obstructed)
   ChipLogIfFalse(CHIP_NO_ERROR == chip::DeviceLayer::PlatformMgr().ScheduleWork(
                                       [](intptr_t arg)
                                       {
-                                        ClosureControlCluster *cluster = GetClusterInstance(closure_endpoint_id);
+                                        ClosureControlCluster *cluster = ClosureControl::GetClusterInstance(closure_endpoint_id);
                                         if (arg)
                                         {
                                           //  Obstruction detected

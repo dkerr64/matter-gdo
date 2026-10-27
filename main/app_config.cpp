@@ -5,6 +5,7 @@
  * Licensed under terms of the GPL-3.0 License.
  *
  */
+#define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
 
 // C/C++ language includes
 #include <string>

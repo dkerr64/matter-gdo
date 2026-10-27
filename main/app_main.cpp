@@ -5,6 +5,7 @@
  * Licensed under terms of the GPL-3.0 License.
  *
  */
+#define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
 
 // C/C++ language includes
 #include <algorithm>
@@ -45,15 +46,15 @@ static const uint16_t s_decryption_key_len = decryption_key_end - decryption_key
 extern "C" void app_main()
 {
   int logLevel = read_nvs_int(cfg_logLevel, ESP_LOG_INFO);
-  if (logLevel > CONFIG_LOG_MAXIMUM_LEVEL)
+  if (logLevel > LOG_LOCAL_LEVEL)
   {
-    ESP_LOGW(TAG, "Log level %s exceeds maximum allowed, capping to %s", ENUM_CAST_NAME(esp_log_level_t, logLevel), ENUM_CAST_NAME(esp_log_level_t, CONFIG_LOG_MAXIMUM_LEVEL));
+    ESP_LOGW(TAG, "Log level %s exceeds maximum allowed, capping to %s", ENUM_CAST_NAME(esp_log_level_t, logLevel), ENUM_CAST_NAME(esp_log_level_t, LOG_LOCAL_LEVEL));
   }
   else
   {
-    ESP_LOGI(TAG, "Log level set to %s", ENUM_CAST_NAME(esp_log_level_t, std::min(logLevel, CONFIG_LOG_MAXIMUM_LEVEL)));
+    ESP_LOGI(TAG, "Log level set to %s", ENUM_CAST_NAME(esp_log_level_t, std::min(logLevel, static_cast<int>(LOG_LOCAL_LEVEL))));
   }
-  esp_log_level_set("*", static_cast<esp_log_level_t>(std::min(logLevel, CONFIG_LOG_MAXIMUM_LEVEL)));
+  esp_log_level_set("*", static_cast<esp_log_level_t>(std::min(logLevel, static_cast<int>(LOG_LOCAL_LEVEL))));
 #ifdef CONFIG_GDO_ENABLE_SYSLOG
   // Initialize our log hooks so we can log to syslog server advertized by mDNS
   app_log_init();
