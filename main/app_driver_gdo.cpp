@@ -21,7 +21,6 @@
 #include "app_driver_gdo.h"
 #include "app_matter_comms.h"
 #include "app_utils.h"
-#include "gdo.h"
 
 using namespace chip::app::Clusters;
 using namespace chip::app::Clusters::Globals;
@@ -50,7 +49,7 @@ using namespace chip::app::Clusters::ClosureDimension;
 static constexpr char *TAG = "app_driver_gdo";
 bool gdo_comms_init_done = false;
 
-static gdo_status_t gdo_status;
+gdo_status_t gdo_status;
 uint32_t last_saved_code = 0;
 #define MAX_CODES_WITHOUT_FLASH_WRITE 10
 
@@ -177,11 +176,11 @@ static void gdo_event_handler(const gdo_status_t *status, gdo_cb_event_t event, 
              gdo_status.paired_devices.total_wall_controls, gdo_status.paired_devices.total_accessories, gdo_status.paired_devices.total_all);
     break;
   case GDO_CB_EVENT_OPEN_DURATION_MEASUREMENT:
-    ESP_LOGI(TAG, "GDO event: open duration: %d seconds (%s)", gdo_status.open_ms, timeString());
+    ESP_LOGI(TAG, "GDO event: open duration: %dms (%s)", gdo_status.open_ms, timeString());
     write_nvs_int(nvram_open_history, gdo_status.open_ms);
     break;
   case GDO_CB_EVENT_CLOSE_DURATION_MEASUREMENT:
-    ESP_LOGI(TAG, "GDO event: close duration: %d seconds (%s)", gdo_status.close_ms, timeString());
+    ESP_LOGI(TAG, "GDO event: close duration: %dms (%s)", gdo_status.close_ms, timeString());
     write_nvs_int(nvram_close_history, gdo_status.close_ms);
     break;
   default:

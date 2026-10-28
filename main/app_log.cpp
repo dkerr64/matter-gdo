@@ -662,7 +662,7 @@ int esp_log_hook(const char *fmt, va_list args)
   constexpr size_t bufferSize = sizeof(msgBuffer->buffer);
   size_t available = bufferSize - msgBuffer->head - 1;
   memcpy(&msgBuffer->buffer[msgBuffer->head], lineBuffer, std::min(available, len));
-  if (available < len)
+  if (available <= len)
   {
     // we wrapped on the available buffer space
     msgBuffer->wrapped = 1;

@@ -55,6 +55,10 @@ extern "C" void app_main()
     ESP_LOGI(TAG, "Log level set to %s", ENUM_CAST_NAME(esp_log_level_t, std::min(logLevel, static_cast<int>(LOG_LOCAL_LEVEL))));
   }
   esp_log_level_set("*", static_cast<esp_log_level_t>(std::min(logLevel, static_cast<int>(LOG_LOCAL_LEVEL))));
+  // Suppress logs from the ROUTE_HOOK module to reduce verbosity
+  esp_log_level_set("ROUTE_HOOK", ESP_LOG_WARN);
+  // Suppress logs from the wifi module to reduce verbosity
+  esp_log_level_set("wifi", ESP_LOG_WARN);
 #ifdef CONFIG_GDO_ENABLE_SYSLOG
   // Initialize our log hooks so we can log to syslog server advertized by mDNS
   app_log_init();

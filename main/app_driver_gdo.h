@@ -10,7 +10,11 @@
 // ESP-Matter SDK include files...
 #include <esp_matter_data_model.h>
 
+// Our project include files...
+#include "gdo.h"
+
 extern bool gdo_comms_init_done;
+extern gdo_status_t gdo_status;
 
 extern void app_driver_gdo_comms_init();
 extern void app_driver_gdo_comms_shutdown();
