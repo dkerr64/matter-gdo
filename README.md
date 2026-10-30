@@ -138,7 +138,7 @@ Garage Door support was added to the CSA Matter Specifications in version 1.5.  
 
 **Matter Utilities**, for [iOS and MacOS](https://matter-utilities.com/), Successfully added the device and registers all endpoints.  However can only control the light.
 
-**Home Assistant**, Home Assistant currently requires that you enable support for Test-net DCL in order to pair a non-CSA certified device.  Find it in Settings->Apps->Matter Server->Configuration.  Once paired, only the light and lock (remotes) endpoints are available.
+**Home Assistant**, Home Assistant currently requires that you enable support for Test-net DCL in order to pair a non-CSA certified device.  Find it in Settings->Apps->Matter Server->Configuration.  Once paired, only the light and lock (remotes) endpoints are available. Support for Matter closures, including for garage doors, is under development and can be tested using [PR 183177](https://github.com/home-assistant/core/pull/183177).
 
 **Google Home**, Not tested.
 
