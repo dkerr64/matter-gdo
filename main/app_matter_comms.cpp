@@ -350,6 +350,8 @@ static void matter_event_cb(const ChipDeviceEvent *event, intptr_t arg)
     ESP_LOGI(TAG, "Commissioning complete");
     clockSet = time(0);
     ESP_LOGI(TAG, "Time synchronized: %s", timeString());
+    // disable BLE to free up resources.
+    // app_ble_disable();
     break;
 
   case chip::DeviceLayer::DeviceEventType::kFailSafeTimerExpired:
@@ -491,7 +493,6 @@ static void matter_event_cb(const ChipDeviceEvent *event, intptr_t arg)
   case chip::DeviceLayer::DeviceEventType::kFactoryReset:
     ESP_LOGI(TAG, "Factory reset event received");
     // Erase all NVS storage
-
     erase_nvs_data();
     // Shutdown GDO communications
     app_driver_gdo_comms_shutdown();
@@ -883,9 +884,11 @@ extern void matter_comms_init()
 
   char product_url[] = "https://github.com/dkerr64/matter-gdo";
   char product_label[] = "GDO Prototype";
+  char product_name[] = "Garage Door Opener";
 
   cluster::basic_information::attribute::create_product_url(basic_info_cluster, product_url, strlen(product_url));
   cluster::basic_information::attribute::create_product_label(basic_info_cluster, product_label, strlen(product_label));
+  cluster::basic_information::attribute::create_product_name(basic_info_cluster, product_name, strlen(product_name));
 
   /*
   // We are setting product URL and product label, but for some reason they are not getting set (clients get empty strings)
@@ -1008,6 +1011,10 @@ extern void matter_comms_init()
   /* Matter start */
   err = esp_matter::start(matter_event_cb);
   ABORT_APP_ON_FAILURE(err == ESP_OK, ESP_LOGE(TAG, "Failed to start Matter, err:%d", err));
+
+#ifdef CONFIG_ENABLE_BG_EVENT_PROCESSING
+  chip::DeviceLayer::PlatformMgr().StartBackgroundEventLoopTask();
+#endif // CONFIG_ENABLE_BG_EVENT_PROCESSING
 
   // After starting Matter, we can read the initial (non-volatile) values of attributes and update the driver accordingly.
   esp_matter_attr_val_t val;

@@ -26,7 +26,7 @@
     }                                                                                                                                                                                                  \
   } while (0)
 
-#ifdef CONFIG_GDO_ENABLE_SYSLOG
+#if defined(CONFIG_GDO_ENABLE_SYSLOG) && defined(CHIP_DEVICE_CONFIG_ENABLE_WIFI_STATION)
 #include <esp_log.h>
 extern void find_mdns_service(const char *service_name, const char *proto);
 extern void start_syslog_discovery();

@@ -97,7 +97,7 @@ void initialize_sntp()
   ESP_ERROR_CHECK_WITHOUT_ABORT(esp_netif_sntp_init(&config));
 }
 
-#ifdef CONFIG_FREERTOS_USE_TRACE_FACILITY
+#if defined(CONFIG_FREERTOS_USE_TRACE_FACILITY) && defined(CONFIG_FREERTOS_VTASKLIST_INCLUDE_COREID)
 void printTaskInfo(const char *buf)
 {
   int count = uxTaskGetNumberOfTasks();
@@ -105,14 +105,14 @@ void printTaskInfo(const char *buf)
   if (tasks != NULL)
   {
     uxTaskGetSystemState(tasks, count, NULL);
-    Serial.print("\n-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\n");
-    Serial.print("Name                    Core\tPri\tStack\tState\n");
+    printf("\n-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\n");
+    printf("Name                    Core\tPri\tStack\tState\n");
     for (size_t i = 0; i < count; i++)
     {
-      Serial.printf("%s\t%s\t%4d\t%3d\t%5d\t%s\n", const_cast<char *>(tasks[i].pcTaskName), strlen(const_cast<char *>(tasks[i].pcTaskName)) > 7 ? "" : "\t",
+      printf("%s\t%s\t%4d\t%3d\t%5d\t%s\n", const_cast<char *>(tasks[i].pcTaskName), strlen(const_cast<char *>(tasks[i].pcTaskName)) > 7 ? "" : "\t",
                     (int)(tasks[i].xCoreID < 16) ? tasks[i].xCoreID : -1, (int)tasks[i].uxBasePriority, (int)tasks[i].usStackHighWaterMark, (magic_enum::enum_name(tasks[i].eCurrentState)).data());
     }
-    Serial.print("-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\n\n");
+    printf("-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\n\n");
   }
   vPortFree(tasks);
 };
