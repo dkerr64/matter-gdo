@@ -15,9 +15,6 @@
 #include <esp_err.h>
 #include <esp_log.h>
 #include <nvs_flash.h>
-#if CHIP_DEVICE_CONFIG_ENABLE_THREAD
-#include <platform/ESP32/OpenthreadLauncher.h>
-#endif
 
 // Our project include files...
 #include "app_config.h"
@@ -29,6 +26,28 @@
 #include <gdo.h>
 
 static constexpr char *TAG = "app_main";
+
+#if CHIP_DEVICE_CONFIG_ENABLE_THREAD
+#include <esp_openthread_types.h>
+#include <platform/ESP32/OpenthreadLauncher.h>
+
+#define ESP_OPENTHREAD_DEFAULT_RADIO_CONFIG()                                                                                                                                                          \
+  {                                                                                                                                                                                                    \
+      .radio_mode = RADIO_MODE_NATIVE,                                                                                                                                                                 \
+  }
+
+#define ESP_OPENTHREAD_DEFAULT_HOST_CONFIG()                                                                                                                                                           \
+  {                                                                                                                                                                                                    \
+      .host_connection_mode = HOST_CONNECTION_MODE_NONE,                                                                                                                                               \
+  }
+
+#define ESP_OPENTHREAD_DEFAULT_PORT_CONFIG()                                                                                                                                                           \
+  {                                                                                                                                                                                                    \
+      .storage_partition_name = "nvs",                                                                                                                                                                 \
+      .netif_queue_size = 10,                                                                                                                                                                          \
+      .task_queue_size = 10,                                                                                                                                                                           \
+  }
+#endif
 
 using namespace esp_matter;
 using namespace esp_matter::attribute;
@@ -85,8 +104,10 @@ extern "C" void app_main()
   matter_comms_init();
   // Initialize Matter attributes based on the current GDO status
   app_driver_init_matter();
+#ifdef CHIP_DEVICE_CONFIG_ENABLE_WIFI_STATION
   // Initialize SNTP for time synchronization
   initialize_sntp();
+#endif // CHIP_DEVICE_CONFIG_ENABLE_WIFI_STATION
 
 #if CONFIG_ENABLE_ENCRYPTED_OTA
   err = esp_matter_ota_requestor_encrypted_init(s_decryption_key, s_decryption_key_len);

@@ -10,7 +10,7 @@
 // System build includes
 #include <sdkconfig.h>
 
-#ifdef CONFIG_GDO_ENABLE_SYSLOG
+#if defined(CONFIG_GDO_ENABLE_SYSLOG) && defined(CHIP_DEVICE_CONFIG_ENABLE_WIFI_STATION)
 
 // C/C++ language includes
 #include <algorithm>

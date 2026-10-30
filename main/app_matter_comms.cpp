@@ -350,6 +350,8 @@ static void matter_event_cb(const ChipDeviceEvent *event, intptr_t arg)
     ESP_LOGI(TAG, "Commissioning complete");
     clockSet = time(0);
     ESP_LOGI(TAG, "Time synchronized: %s", timeString());
+    // disable BLE to free up resources.
+    // app_ble_disable();
     break;
 
   case chip::DeviceLayer::DeviceEventType::kFailSafeTimerExpired:
@@ -491,7 +493,6 @@ static void matter_event_cb(const ChipDeviceEvent *event, intptr_t arg)
   case chip::DeviceLayer::DeviceEventType::kFactoryReset:
     ESP_LOGI(TAG, "Factory reset event received");
     // Erase all NVS storage
-
     erase_nvs_data();
     // Shutdown GDO communications
     app_driver_gdo_comms_shutdown();
