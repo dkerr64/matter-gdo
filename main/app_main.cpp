@@ -78,10 +78,8 @@ extern "C" void app_main()
   esp_log_level_set("ROUTE_HOOK", ESP_LOG_WARN);
   // Suppress logs from the wifi module to reduce verbosity
   esp_log_level_set("wifi", ESP_LOG_WARN);
-#ifdef CONFIG_GDO_ENABLE_SYSLOG
   // Initialize our log hooks so we can log to syslog server advertized by mDNS
   app_log_init();
-#endif // CONFIG_GDO_ENABLE_SYSLOG
 
 #ifdef CONFIG_CHIP_LOG_FILTERING
   // Default logging is way too verbose...

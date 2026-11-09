@@ -10,8 +10,6 @@
 // System build includes
 #include <sdkconfig.h>
 
-#if defined(CONFIG_GDO_ENABLE_SYSLOG) && defined(CHIP_DEVICE_CONFIG_ENABLE_WIFI_STATION)
-
 // C/C++ language includes
 #include <algorithm>
 
@@ -34,14 +32,6 @@ static constexpr char *TAG = "app_log";
 bool app_log_init_done = false;
 vprintf_like_t old_vprintf = nullptr;
 
-typedef struct syslogServer {
-  uint16_t port;
-  esp_ip4_addr_t IPv4;
-} syslogServer;
-static syslogServer syslogSrv = {};
-char nvs_key_syslogSrv[] = "syslogSrv";
-static bool syslogDiscovered = false;
-
 #define LOG_BUFFER_SIZE (1024 * 16)
 #define LINE_BUFFER_SIZE 512
 
@@ -52,8 +42,17 @@ typedef struct logBuffer {
   char buffer[LOG_BUFFER_SIZE - sizeof(wrapped) - sizeof(head) - sizeof(tail)]; // sized so whole struct is LOG_BUFFER_SIZE bytes
 } logBuffer;
 static logBuffer *msgBuffer = NULL; // Circular buffer to save log messages as they occur
-char *lineBuffer = NULL;            // Buffer to hold a single line of log message
-SemaphoreHandle_t logMutex = NULL;
+static char *lineBuffer = NULL;     // Buffer to hold a single line of log message
+static SemaphoreHandle_t logMutex = NULL;
+
+#if defined(CONFIG_GDO_ENABLE_SYSLOG) && defined(CHIP_DEVICE_CONFIG_ENABLE_WIFI_STATION)
+typedef struct syslogServer {
+  uint16_t port;
+  esp_ip4_addr_t IPv4;
+} syslogServer;
+static syslogServer syslogSrv = {};
+char nvs_key_syslogSrv[] = "syslogSrv";
+static bool syslogDiscovered = false;
 TaskHandle_t syslogTask = NULL;
 
 /****************************************************************************
@@ -617,6 +616,7 @@ void syslog_sender_task(void *arg)
     }
   }
 }
+#endif // defined(CONFIG_GDO_ENABLE_SYSLOG) && defined(CHIP_DEVICE_CONFIG_ENABLE_WIFI_STATION)
 
 // Hook function for ESP logging. Captures log messages, stores them in a rolling buffer,
 // and notifies the syslog task when a complete line is available.
@@ -674,14 +674,14 @@ int esp_log_hook(const char *fmt, va_list args)
     msgBuffer->head += len;
   }
   msgBuffer->buffer[msgBuffer->head] = 0; // null terminate
-
+#if defined(CONFIG_GDO_ENABLE_SYSLOG) && defined(CHIP_DEVICE_CONFIG_ENABLE_WIFI_STATION)
   // Only notify the syslog task if the line ends with a newline character.  Some logs come in without a newline at the end and
   // are immediately followed by another log message, so we only notify when a full line is available.
   if (lineBuffer[len - 1] == '\n')
   {
     xTaskNotify(syslogTask, 0, eSetValueWithOverwrite);
   }
-
+#endif // defined(CONFIG_GDO_ENABLE_SYSLOG) && defined(CHIP_DEVICE_CONFIG_ENABLE_WIFI_STATION)
   xSemaphoreGiveRecursive(logMutex);
 
   return written;
@@ -726,12 +726,12 @@ void app_log_init()
   msgBuffer->head = 0;
   msgBuffer->tail = 0;
 
+#if defined(CONFIG_GDO_ENABLE_SYSLOG) && defined(CHIP_DEVICE_CONFIG_ENABLE_WIFI_STATION)
   xTaskCreate(syslog_sender_task, "syslog_send", 4096, NULL, tskIDLE_PRIORITY + 1, &syslogTask);
+#endif // defined(CONFIG_GDO_ENABLE_SYSLOG) && defined(CHIP_DEVICE_CONFIG_ENABLE_WIFI_STATION)
 
   old_vprintf = esp_log_set_vprintf(esp_log_hook);
   chip::Logging::SetLogRedirectCallback(chipLogger);
 
   app_log_init_done = true;
 }
-
-#endif // CONFIG_GDO_ENABLE_SYSLOG

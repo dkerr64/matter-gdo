@@ -29,6 +29,7 @@
 #include <esp_matter_data_model.h>
 #include <esp_matter_data_model_provider.h>
 #include <esp_matter_ota.h>
+#include <esp_matter_providers.h>
 
 // Connected Home Alliance CHIP include files...
 #include <app/clusters/closure-control-server/ClosureControlCluster.h>
@@ -37,6 +38,7 @@
 #include <app/clusters/occupancy-sensor-server/OccupancySensingCluster.h>
 #include <app/clusters/time-synchronization-server/DefaultTimeSyncDelegate.h>
 #include <platform/CHIPDeviceLayer.h>
+#include <platform/ESP32/ESP32FactoryDataProvider.h>
 
 // Our project include files...
 #include "app_config.h"
@@ -467,9 +469,9 @@ static void matter_event_cb(const ChipDeviceEvent *event, intptr_t arg)
     ESP_LOGI(TAG, "DNS-SD initialized");
     // We can perform additional actions here if needed after DNS-SD
     // initialization, such as starting service discovery or advertising.
-#ifdef CONFIG_GDO_ENABLE_SYSLOG
+#if defined(CONFIG_GDO_ENABLE_SYSLOG) && defined(CHIP_DEVICE_CONFIG_ENABLE_WIFI_STATION)
     start_syslog_discovery();
-#endif // CONFIG_GDO_ENABLE_SYSLOG
+#endif // defined(CONFIG_GDO_ENABLE_SYSLOG) && defined(CHIP_DEVICE_CONFIG_ENABLE_WIFI_STATION)
     break;
 
   case chip::DeviceLayer::DeviceEventType::kServerReady:
@@ -871,6 +873,24 @@ public:
 static GdoSupportedModesManager mode_select_manager;
 
 /****************************************************************************
+ * Device instance info: factory partition values, except a MAC based serial number.
+ */
+class GdoDeviceInstanceInfoProvider : public chip::DeviceLayer::ESP32FactoryDataProvider
+{
+public:
+  CHIP_ERROR GetSerialNumber(char *buf, size_t bufSize) override
+  {
+    uint8_t mac[6];
+    VerifyOrReturnError(esp_efuse_mac_get_default(mac) == ESP_OK, CHIP_ERROR_INTERNAL);
+    int len = snprintf(buf, bufSize, "GDO-%02x%02x%02x%02x%02x%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    ESP_LOGI(TAG, "Serial Number: %s (size %d)", buf, static_cast<int>(bufSize));
+    VerifyOrReturnError(len > 0 && static_cast<size_t>(len) < bufSize, CHIP_ERROR_BUFFER_TOO_SMALL);
+    return CHIP_NO_ERROR;
+  }
+};
+static GdoDeviceInstanceInfoProvider device_info_provider;
+
+/****************************************************************************
  * Initialization
  *
  */
@@ -892,39 +912,23 @@ extern void matter_comms_init()
   ABORT_APP_ON_FAILURE(node != nullptr, ESP_LOGE(TAG, "Failed to create Matter node"));
   endpoint_t *root_node_ep = endpoint::get_first(node);
 
-  // Update the Basic Information cluster on endpoint 0.
-  cluster_t *basic_info_cluster = cluster::get(root_node_ep, chip::app::Clusters::BasicInformation::Id);
 
+  // Update the Basic Information cluster on endpoint 0.
+    
   char product_url[] = "https://github.com/dkerr64/matter-gdo";
   char product_label[] = "GDO Prototype";
-  char product_name[] = "Garage Door Opener";
-
+  char serial_number[] = "GDO-000000000000";
+  // The above values are not actually used... URL and label are set in the factory partition,
+  // and serial number is set by the device instance info provider.  But the attributes need to
+  // be created here else the cluster will not have the required attributes.
+  cluster_t *basic_info_cluster = cluster::get(root_node_ep, chip::app::Clusters::BasicInformation::Id);
   cluster::basic_information::attribute::create_product_url(basic_info_cluster, product_url, strlen(product_url));
   cluster::basic_information::attribute::create_product_label(basic_info_cluster, product_label, strlen(product_label));
-  cluster::basic_information::attribute::create_product_name(basic_info_cluster, product_name, strlen(product_name));
-
-  /*
-  // We are setting product URL and product label, but for some reason they are not getting set (clients get empty strings)
-  // This was code attempting to debug the issue, but it remains unresolved.
-  cluster::basic_information::attribute::create_product_url(basic_info_cluster, NULL, 0);
-  cluster::basic_information::attribute::create_product_label(basic_info_cluster, NULL, 0);
-  attribute_t *product_url_attr = attribute::get(basic_info_cluster, chip::app::Clusters::BasicInformation::Attributes::ProductURL::Id);
-  attribute_t *product_label_attr = attribute::get(basic_info_cluster, chip::app::Clusters::BasicInformation::Attributes::ProductLabel::Id);
-  esp_matter_attr_val_t url_val = esp_matter_char_str((char *)product_url, strlen(product_url));
-  esp_matter_attr_val_t label_val = esp_matter_char_str((char *)product_label, strlen(product_label));
-  attribute::set_val(product_url_attr, &url_val);
-  attribute::set_val(product_label_attr, &label_val);
-  */
-
-  // We have similar problem with the serial number and manufacturing date attributes not being set correctly.
-  uint8_t mac[6];
-  char serial_number[32];
-  esp_efuse_mac_get_default(mac);
-  snprintf(serial_number, sizeof(serial_number), "GDO-%02x%02x%02x%02x%02x%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
   cluster::basic_information::attribute::create_serial_number(basic_info_cluster, serial_number, strlen(serial_number));
-  ESP_LOGI(TAG, "Serial Number: %s", serial_number);
-  char manufacturing_date[] = "20260925";
-  cluster::basic_information::attribute::create_manufacturing_date(basic_info_cluster, manufacturing_date, strlen(manufacturing_date));
+  // Basic Information values (product name, URL, label, serial number, manufacturing date)
+  // are served by the device instance info provider, not by cluster attributes.
+  set_custom_device_instance_info_provider(&device_info_provider);
+
   ESP_LOGI(TAG, "Basic Information Cluster initialized!");
 
   cluster::time_synchronization::config_t time_sync_cfg;
