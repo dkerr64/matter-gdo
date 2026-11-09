@@ -121,7 +121,11 @@ esp-matter-mfg-tool --passcode 25102023 \
                     --hw-ver 1 \
                     --hw-ver-str DevKit \
                     --outdir build \
-                    --target esp32c6
+                    --target esp32c6 \
+                    --product-name "Garage Door Opener" \
+                    --product-url "https://github.com/dkerr64/matter-gdo" \
+                    --product-label "GDO Prototype" \
+                    --mfg-date 20261109
 ```
 
 If you need to create your own CD file then you can use the `chip-cert` tool provided by the CSA.
@@ -201,6 +205,12 @@ chip-tool modeselect read current-mode 1 1
 
 chip-tool modeselect change-to-mode 1 1 1
 # Requesting a change to mode 1 instructs the device to reboot (after 1 second delay)
+
+chip-tool basicinformation read product-name 1 0
+# Reads product name (which is set in the factory partition by the mfg-tool)
+
+chip-tool basicinformation read serial-number 1 0
+# Reads serial number (which is set at runtime from the device MAC address)
 ```
 
 You can also use chip-tool in interactive mode and then can omit typing `chip-tool` in front of each command...
