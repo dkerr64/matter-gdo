@@ -102,11 +102,11 @@ static void gdo_event_handler(const gdo_status_t *status, gdo_cb_event_t event, 
     }
     break;
   case GDO_CB_EVENT_LIGHT:
-    ESP_LOGI(TAG, "GDO event: light: %s (%s)", gdo_light_state_to_string(gdo_status.light), timeString());
+    ESP_LOGI(TAG, "GDO event: light: %s (%s)", gdo_light_state_to_string(gdo_status.light), localTimeString());
     matter_notify_light_state(gdo_status.light == gdo_light_state_t::GDO_LIGHT_STATE_ON);
     break;
   case GDO_CB_EVENT_LOCK:
-    ESP_LOGI(TAG, "GDO event: lock remotes: %s (%s)", gdo_lock_state_to_string(gdo_status.lock), timeString());
+    ESP_LOGI(TAG, "GDO event: lock remotes: %s (%s)", gdo_lock_state_to_string(gdo_status.lock), localTimeString());
     matter_notify_lock_state(gdo_status.lock == gdo_lock_state_t::GDO_LOCK_STATE_LOCKED);
     break;
   case GDO_CB_EVENT_DOOR_POSITION:
@@ -135,7 +135,7 @@ static void gdo_event_handler(const gdo_status_t *status, gdo_cb_event_t event, 
     ESP_LOGI(TAG, "GDO event: learn: %s", gdo_learn_state_to_string(gdo_status.learn));
     break;
   case GDO_CB_EVENT_OBSTRUCTION:
-    ESP_LOGI(TAG, "GDO event: obstruction: %s (%s)", gdo_obstruction_state_to_string(gdo_status.obstruction), timeString());
+    ESP_LOGI(TAG, "GDO event: obstruction: %s (%s)", gdo_obstruction_state_to_string(gdo_status.obstruction), localTimeString());
     matter_notify_obstruction_state(gdo_status.obstruction == gdo_obstruction_state_t::GDO_OBSTRUCTION_STATE_OBSTRUCTED);
     break;
   case GDO_CB_EVENT_MOTION:
@@ -176,11 +176,11 @@ static void gdo_event_handler(const gdo_status_t *status, gdo_cb_event_t event, 
              gdo_status.paired_devices.total_wall_controls, gdo_status.paired_devices.total_accessories, gdo_status.paired_devices.total_all);
     break;
   case GDO_CB_EVENT_OPEN_DURATION_MEASUREMENT:
-    ESP_LOGI(TAG, "GDO event: open duration: %dms (%s)", gdo_status.open_ms, timeString());
+    ESP_LOGI(TAG, "GDO event: open duration: %dms (%s)", gdo_status.open_ms, localTimeString());
     write_nvs_int(nvram_open_history, gdo_status.open_ms);
     break;
   case GDO_CB_EVENT_CLOSE_DURATION_MEASUREMENT:
-    ESP_LOGI(TAG, "GDO event: close duration: %dms (%s)", gdo_status.close_ms, timeString());
+    ESP_LOGI(TAG, "GDO event: close duration: %dms (%s)", gdo_status.close_ms, localTimeString());
     write_nvs_int(nvram_close_history, gdo_status.close_ms);
     break;
   default:

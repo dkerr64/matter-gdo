@@ -34,7 +34,8 @@ typedef int64_t _millis_t;
 
 extern time_t clockSet;
 extern uint64_t lastRebootAt;
-extern char *timeString(time_t reqTime = 0, bool syslog = false);
+extern char *timeString(time_t reqTime = 0, bool syslog = false, char *buffer = nullptr);
+extern char *localTimeString(time_t reqTime = 0);
 extern char *toHHMMSSmmm(_millis_t t = _millis());
 extern bool enableNTP;
 extern bool get_auto_timezone();

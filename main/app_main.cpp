@@ -104,10 +104,6 @@ extern "C" void app_main()
   matter_comms_init();
   // Initialize Matter attributes based on the current GDO status
   app_driver_init_matter();
-#ifdef CHIP_DEVICE_CONFIG_ENABLE_WIFI_STATION
-  // Initialize SNTP for time synchronization
-  initialize_sntp();
-#endif // CHIP_DEVICE_CONFIG_ENABLE_WIFI_STATION
 
 #if CONFIG_ENABLE_ENCRYPTED_OTA
   err = esp_matter_ota_requestor_encrypted_init(s_decryption_key, s_decryption_key_len);

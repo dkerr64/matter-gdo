@@ -66,7 +66,7 @@ using namespace chip::app::Clusters::ModeSelect;
  * Global storage definitions
  *
  */
-static constexpr char *TAG = "app_matter_comms";
+static constexpr const char *TAG = "app_matter_comms";
 bool matter_comms_init_done = false;
 
 uint16_t closure_endpoint_id = 0;
@@ -347,11 +347,7 @@ static void matter_event_cb(const ChipDeviceEvent *event, intptr_t arg)
   }
 
   case chip::DeviceLayer::DeviceEventType::kCommissioningComplete:
-    ESP_LOGI(TAG, "Commissioning complete");
-    clockSet = time(0);
-    ESP_LOGI(TAG, "Time synchronized: %s", timeString());
-    // disable BLE to free up resources.
-    // app_ble_disable();
+    ESP_LOGI(TAG, "Commissioning complete at: %s (%s UTC)", localTimeString(), timeString());
     break;
 
   case chip::DeviceLayer::DeviceEventType::kFailSafeTimerExpired:
@@ -420,13 +416,24 @@ static void matter_event_cb(const ChipDeviceEvent *event, intptr_t arg)
     {
       if (sys.Id == IP_EVENT_GOT_IP6)
       {
-        const ip_event_got_ip6_t &got = sys.Data.IpGotIp6;
-        ESP_LOGI(TAG, "ESPSystemEvent: IPv6 address: " IPV6STR, IPV62STR(got.ip6_info.ip));
+        esp_ip6_addr_t addr = sys.Data.IpGotIp6.ip6_info.ip;
+        const esp_ip6_addr_type_t type = esp_netif_ip6_get_addr_type(&addr);
+        ESP_LOGI(TAG, "ESPSystemEvent: IPv6 address: " IPV6STR " type: %s", IPV62STR(addr), ENUM_NAME(type));
+        switch (type)
+        {
+        case ESP_IP6_ADDR_IS_GLOBAL:
+        case ESP_IP6_ADDR_IS_SITE_LOCAL:
+        case ESP_IP6_ADDR_IS_UNIQUE_LOCAL:
+          initialize_sntp();
+          break;
+        default:
+          break;
+        }
       }
       else if (sys.Id == IP_EVENT_STA_GOT_IP)
       {
-        const ip_event_got_ip_t &got = sys.Data.IpGotIp;
-        ESP_LOGI(TAG, "ESPSystemEvent: IPv4 address: " IPSTR, IP2STR(&got.ip_info.ip));
+        esp_ip4_addr_t addr = sys.Data.IpGotIp.ip_info.ip;
+        ESP_LOGI(TAG, "ESPSystemEvent: IPv4 address: " IPSTR, IP2STR(&addr));
       }
       else
       {
@@ -446,6 +453,7 @@ static void matter_event_cb(const ChipDeviceEvent *event, intptr_t arg)
   case chip::DeviceLayer::DeviceEventType::kWiFiConnectivityChange:
     ESP_LOGI(TAG, "Wi-Fi connectivity change: %s", ENUM_CAST_NAME(chip::DeviceLayer::ConnectivityChange, event->WiFiConnectivityChange.Result));
     break;
+
   case chip::DeviceLayer::DeviceEventType::kInternetConnectivityChange:
   {
     chip::DeviceLayer::ConnectivityChange Ipv4Change = event->InternetConnectivityChange.IPv4;
@@ -454,6 +462,7 @@ static void matter_event_cb(const ChipDeviceEvent *event, intptr_t arg)
     ESP_LOGD(TAG, "Internet connectivity change event received, IPv6 status: %s", ENUM_NAME(Ipv6Change));
     break;
   }
+
   case chip::DeviceLayer::DeviceEventType::kDnssdInitialized:
     ESP_LOGI(TAG, "DNS-SD initialized");
     // We can perform additional actions here if needed after DNS-SD
@@ -462,34 +471,27 @@ static void matter_event_cb(const ChipDeviceEvent *event, intptr_t arg)
     start_syslog_discovery();
 #endif // CONFIG_GDO_ENABLE_SYSLOG
     break;
+
   case chip::DeviceLayer::DeviceEventType::kServerReady:
-    // Check if we have valid real time before setting the clock.
-    // Time is retrieved either from SNTP server or the Matter Commissioning
-    // process.
-    if (time(0) > 1767225600) // January 1st 2026
-      clockSet = time(0);
-    ESP_LOGI(TAG, "Server is ready at %s", timeString());
+    ESP_LOGI(TAG, "Server is ready at: %s (%s UTC)", localTimeString(), timeString());
     break;
+
   case chip::DeviceLayer::DeviceEventType::kServiceConnectivityChange:
     ESP_LOGI(TAG, "Service connectivity change event received");
     break;
+
   case chip::DeviceLayer::DeviceEventType::kThreadConnectivityChange:
     ESP_LOGI(TAG, "Thread connectivity change event received");
     break;
+
   case chip::DeviceLayer::DeviceEventType::kTimeSyncChange:
-    if (event->TimeSyncChange.IsTimeSynchronized)
-    {
-      clockSet = time(0);
-      ESP_LOGI(TAG, "Clock set to current time: %s", timeString());
-    }
-    else
-    {
-      ESP_LOGI(TAG, "Time synchronization change: not synchronized");
-    }
+    ESP_LOGI(TAG, "Time synchronization change:%s synchronized", event->TimeSyncChange.IsTimeSynchronized ? "" : " not");
     break;
+
   case chip::DeviceLayer::DeviceEventType::kSecureSessionEstablished:
     ESP_LOGI(TAG, "Secure session established");
     break;
+
   case chip::DeviceLayer::DeviceEventType::kFactoryReset:
     ESP_LOGI(TAG, "Factory reset event received");
     // Erase all NVS storage
@@ -497,24 +499,35 @@ static void matter_event_cb(const ChipDeviceEvent *event, intptr_t arg)
     // Shutdown GDO communications
     app_driver_gdo_comms_shutdown();
     break;
+
   case chip::DeviceLayer::DeviceEventType::kServiceProvisioningChange:
     ESP_LOGI(TAG, "Service provisioning change event received");
     break;
+
   case chip::DeviceLayer::DeviceEventType::kThreadStateChange:
-    ESP_LOGI(TAG, "Thread state change event received");
+  {
+    auto &eventData = event->ThreadStateChange;
+    ESP_LOGD(TAG, "Thread state change event: role: %d, address: %d, net data: %d, child nodes: %d", eventData.RoleChanged, eventData.AddressChanged, eventData.NetDataChanged,
+             eventData.ChildNodesChanged);
     break;
+  }
+
   case chip::DeviceLayer::DeviceEventType::kOperationalNetworkEnabled:
     ESP_LOGI(TAG, "Operational network enabled event received");
     break;
+
   case chip::DeviceLayer::DeviceEventType::kCHIPoBLEConnectionEstablished:
     ESP_LOGI(TAG, "CHIPoBLE connection established event received");
     break;
+
   case chip::DeviceLayer::DeviceEventType::kCHIPoBLEConnectionClosed:
     ESP_LOGI(TAG, "CHIPoBLE connection closed event received");
     break;
+
   case chip::DeviceLayer::DeviceEventType::kCHIPoBLEAdvertisingChange:
     ESP_LOGI(TAG, "CHIPoBLE advertising change event received");
     break;
+
   default:
     ESP_LOGW(TAG, "Unknown callback value: 0x%04X", event->Type);
     break;
