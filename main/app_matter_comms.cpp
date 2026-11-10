@@ -421,21 +421,13 @@ static void matter_event_cb(const ChipDeviceEvent *event, intptr_t arg)
         esp_ip6_addr_t addr = sys.Data.IpGotIp6.ip6_info.ip;
         const esp_ip6_addr_type_t type = esp_netif_ip6_get_addr_type(&addr);
         ESP_LOGI(TAG, "ESPSystemEvent: IPv6 address: " IPV6STR " type: %s", IPV62STR(addr), ENUM_NAME(type));
-        switch (type)
-        {
-        case ESP_IP6_ADDR_IS_GLOBAL:
-        case ESP_IP6_ADDR_IS_SITE_LOCAL:
-        case ESP_IP6_ADDR_IS_UNIQUE_LOCAL:
-          initialize_sntp();
-          break;
-        default:
-          break;
-        }
+        initialize_sntp();
       }
       else if (sys.Id == IP_EVENT_STA_GOT_IP)
       {
         esp_ip4_addr_t addr = sys.Data.IpGotIp.ip_info.ip;
         ESP_LOGI(TAG, "ESPSystemEvent: IPv4 address: " IPSTR, IP2STR(&addr));
+        initialize_sntp();
       }
       else
       {
@@ -875,8 +867,7 @@ static GdoSupportedModesManager mode_select_manager;
 /****************************************************************************
  * Device instance info: factory partition values, except a MAC based serial number.
  */
-class GdoDeviceInstanceInfoProvider : public chip::DeviceLayer::ESP32FactoryDataProvider
-{
+class GdoDeviceInstanceInfoProvider : public chip::DeviceLayer::ESP32FactoryDataProvider {
 public:
   CHIP_ERROR GetSerialNumber(char *buf, size_t bufSize) override
   {
@@ -912,9 +903,8 @@ extern void matter_comms_init()
   ABORT_APP_ON_FAILURE(node != nullptr, ESP_LOGE(TAG, "Failed to create Matter node"));
   endpoint_t *root_node_ep = endpoint::get_first(node);
 
-
   // Update the Basic Information cluster on endpoint 0.
-    
+
   char product_url[] = "https://github.com/dkerr64/matter-gdo";
   char product_label[] = "GDO Prototype";
   char serial_number[] = "GDO-000000000000";

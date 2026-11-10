@@ -23,6 +23,7 @@
 #include "app_driver_gdo.h"
 #include "app_log.h"
 #include "app_utils.h"
+#include "app_matter_comms.h"
 
 static constexpr const char *TAG = "app_utils";
 static bool sntp_init_done = false;
@@ -71,6 +72,9 @@ char *timeString(time_t reqTime, bool syslog, char *buffer)
 
 time_t app_matter_local_time()
 {
+  if (!matter_comms_init_done)
+    return 0;
+
   using namespace chip::app::Clusters;
   esp_matter_attr_val_t val;
   esp_matter::attribute::get_val(0, TimeSynchronization::Id, TimeSynchronization::Attributes::LocalTime::Id, &val);
@@ -122,6 +126,7 @@ void initialize_sntp()
 {
   if (sntp_init_done)
     return;
+
   sntp_init_done = true;
   constexpr const uint32_t k_sync_interval_ms = 60U * 60U * 1000U;
   ESP_LOGI(TAG, "Initialize SNTP with server: %s and sync interval: %lu minutes", NTP_SERVER, k_sync_interval_ms / 60 / 1000);
